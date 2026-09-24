@@ -1,0 +1,368 @@
+import { useEffect, useMemo, useState } from 'react';
+import { usePatientSession } from '../../hooks/usePatientSession';
+import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
+import { PortalLoading, PortalError } from '../../components/layout/PortalStatus';
+import { saveRelaxationSession, getSessionFeedback, submitSessionFeedback, getRelaxationPaymentStatus } from '../../services/api';
+import { useRaagPlayer } from '../../hooks/useRaagPlayer';
+import SessionFeelingFeedback from '../../components/SessionFeelingFeedback';
+import { Navigate } from 'react-router-dom';
+
+const TEAL = '#0d5239';
+
+// Every reason a person might need to unwind, each mapped to the raags that
+// traditionally address it. Tracks are not uploaded yet, so the player is a
+// faithful layout of the reference design with playback disabled.
+export const CONCERNS = [
+  { key: 'anger', label: 'Anger' },
+  { key: 'frustration', label: 'Frustration' },
+  { key: 'stress', label: 'Stress' },
+  { key: 'anxiety', label: 'Anxiety' },
+  { key: 'sadness', label: 'Sadness' },
+  { key: 'overthinking', label: 'Overthinking' },
+  { key: 'sleep', label: 'Sleep issues' },
+  { key: 'restlessness', label: 'Restlessness' },
+  { key: 'loneliness', label: 'Loneliness' },
+  { key: 'fear', label: 'Fear' },
+  { key: 'burnout', label: 'Burnout' },
+  { key: 'motivation', label: 'Low motivation' },
+  { key: 'grief', label: 'Grief' },
+  { key: 'focus', label: 'Lack of focus' },
+];
+
+const RAAGS = {
+  anger: [
+    { name: 'Raag Darbari Kanada', note: 'Calms anger • Brings balance', length: '12:45', blurb: 'Let the deep and soulful notes of Darbari Kanada help you release tension and find inner peace.', hue: 25 },
+    { name: 'Raag Bhairav', note: 'Soothes the mind • Reduces agitation', length: '10:32', blurb: 'A morning raag whose slow, grounded phrases settle a racing mind.', hue: 200 },
+    { name: 'Raag Yaman', note: 'Brings peace • Stabilizes emotions', length: '11:20', blurb: 'Yaman opens the evening gently and steadies the heart.', hue: 260 },
+    { name: 'Raag Jog', note: 'Releases inner tension • Encourages calm', length: '09:48', blurb: 'Jog blends warmth with restraint, easing built-up frustration.', hue: 120 },
+    { name: 'Raag Malkauns', note: 'Deep relaxation • Emotional healing', length: '13:15', blurb: 'The late-night Malkauns sinks you into stillness.', hue: 230 },
+  ],
+  frustration: [
+    { name: 'Raag Jog', note: 'Releases inner tension', length: '09:48', blurb: 'Jog blends warmth with restraint, easing built-up frustration.', hue: 120 },
+    { name: 'Raag Darbari Kanada', note: 'Brings balance', length: '12:45', blurb: 'Deep, slow phrases that let irritation settle.', hue: 25 },
+    { name: 'Raag Kafi', note: 'Lightens the mood', length: '10:05', blurb: 'A playful, folk-rooted raag that loosens a tight chest.', hue: 40 },
+  ],
+  stress: [
+    { name: 'Raag Bhairavi', note: 'Grounding • Releases stress', length: '11:40', blurb: 'Bhairavi is the raag of surrender — let the day go.', hue: 340 },
+    { name: 'Raag Bhimpalasi', note: 'Afternoon calm', length: '10:20', blurb: 'A mid-day raag that eases the pressure of a long day.', hue: 45 },
+    { name: 'Raag Yaman', note: 'Stabilizes emotions', length: '11:20', blurb: 'Yaman opens the evening gently and steadies the heart.', hue: 260 },
+  ],
+  anxiety: [
+    { name: 'Raag Bhupali', note: 'Clarity • Steadies breath', length: '09:30', blurb: 'Five notes, no hurry — Bhupali slows the breath.', hue: 190 },
+    { name: 'Raag Ahir Bhairav', note: 'Soft morning warmth', length: '12:10', blurb: 'A tender dawn raag that reassures.', hue: 30 },
+    { name: 'Raag Malkauns', note: 'Deep relaxation', length: '13:15', blurb: 'The late-night Malkauns sinks you into stillness.', hue: 230 },
+  ],
+  sadness: [
+    { name: 'Raag Bhairav', note: 'Comfort • Reflection', length: '10:32', blurb: 'Bhairav sits with you without rushing you.', hue: 200 },
+    { name: 'Raag Desh', note: 'Uplifting • Gentle joy', length: '09:55', blurb: 'The monsoon raag that brings a quiet smile back.', hue: 150 },
+    { name: 'Raag Kafi', note: 'Lightens the mood', length: '10:05', blurb: 'Playful phrases that lift heaviness.', hue: 40 },
+  ],
+  overthinking: [
+    { name: 'Raag Bhupali', note: 'Single-point focus', length: '09:30', blurb: 'Five notes, no hurry — Bhupali slows the breath.', hue: 190 },
+    { name: 'Raag Malkauns', note: 'Quietens the mind', length: '13:15', blurb: 'The late-night Malkauns sinks you into stillness.', hue: 230 },
+    { name: 'Raag Yaman', note: 'Stabilizes emotions', length: '11:20', blurb: 'Yaman opens the evening gently and steadies the heart.', hue: 260 },
+  ],
+  sleep: [
+    { name: 'Raag Yaman', note: 'Night raag • Prepares for rest', length: '11:20', blurb: 'Yaman opens the evening gently and steadies the heart.', hue: 260 },
+    { name: 'Raag Bageshree', note: 'Late-night calm', length: '12:30', blurb: 'A midnight raag that carries you toward sleep.', hue: 240 },
+    { name: 'Raag Malkauns', note: 'Deep relaxation', length: '13:15', blurb: 'The late-night Malkauns sinks you into stillness.', hue: 230 },
+  ],
+  restlessness: [
+    { name: 'Raag Bhairavi', note: 'Grounding', length: '11:40', blurb: 'Bhairavi is the raag of surrender — let the day go.', hue: 340 },
+    { name: 'Raag Darbari Kanada', note: 'Slows everything down', length: '12:45', blurb: 'Deep, slow phrases that let restlessness settle.', hue: 25 },
+  ],
+  loneliness: [
+    { name: 'Raag Bhairav', note: 'Warm companionship', length: '10:32', blurb: 'Bhairav sits with you without rushing you.', hue: 200 },
+    { name: 'Raag Desh', note: 'Gentle joy', length: '09:55', blurb: 'The monsoon raag that brings a quiet smile back.', hue: 150 },
+  ],
+  fear: [
+    { name: 'Raag Bhupali', note: 'Courage • Clarity', length: '09:30', blurb: 'Five notes, no hurry — Bhupali slows the breath.', hue: 190 },
+    { name: 'Raag Ahir Bhairav', note: 'Reassurance', length: '12:10', blurb: 'A tender dawn raag that reassures.', hue: 30 },
+  ],
+  burnout: [
+    { name: 'Raag Bhairavi', note: 'Restores • Releases', length: '11:40', blurb: 'Bhairavi is the raag of surrender — let the day go.', hue: 340 },
+    { name: 'Raag Bhimpalasi', note: 'Afternoon calm', length: '10:20', blurb: 'A mid-day raag that eases the pressure of a long day.', hue: 45 },
+    { name: 'Raag Bageshree', note: 'Late-night calm', length: '12:30', blurb: 'A midnight raag that carries you toward rest.', hue: 240 },
+  ],
+  motivation: [
+    { name: 'Raag Desh', note: 'Bright • Forward-moving', length: '09:55', blurb: 'The monsoon raag that brings a quiet smile back.', hue: 150 },
+    { name: 'Raag Bhupali', note: 'Fresh start', length: '09:30', blurb: 'Five notes, no hurry — a clean beginning.', hue: 190 },
+  ],
+  grief: [
+    { name: 'Raag Bhairav', note: 'Holds sorrow gently', length: '10:32', blurb: 'Bhairav sits with you without rushing you.', hue: 200 },
+    { name: 'Raag Bhairavi', note: 'Release', length: '11:40', blurb: 'Bhairavi is the raag of surrender — let it be felt.', hue: 340 },
+  ],
+  focus: [
+    { name: 'Raag Bhupali', note: 'Single-point focus', length: '09:30', blurb: 'Five notes, no hurry — Bhupali sharpens attention.', hue: 190 },
+    { name: 'Raag Bhimpalasi', note: 'Afternoon clarity', length: '10:20', blurb: 'A mid-day raag that clears the fog.', hue: 45 },
+  ],
+};
+
+export default function RelaxationSession() {
+  const { user, loading, error, reload, logout } = usePatientSession();
+  const [concern, setConcern] = useState('anger');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [listened, setListened] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedback, setFeedback] = useState({ after: '', helped: '', note: '' });
+  const [feedbackDone, setFeedbackDone] = useState(false);
+  const [beforeFeelingDone, setBeforeFeelingDone] = useState(null); // null = unknown yet
+  const [afterFeelingDone, setAfterFeelingDone] = useState(false);
+  const [feelingSaving, setFeelingSaving] = useState(false);
+  const [paidToday, setPaidToday] = useState(null); // null = unknown yet
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getRelaxationPaymentStatus(user.id).then((s) => setPaidToday(!!s.paid)).catch(() => setPaidToday(false));
+  }, [user?.id]);
+
+  const raags = useMemo(() => RAAGS[concern] || RAAGS.anger, [concern]);
+  const player = useRaagPlayer(raags);
+  const current = raags[Math.min(player.index, raags.length - 1)];
+  const concernLabel = CONCERNS.find((c) => c.key === concern)?.label;
+  const progress = player.duration ? player.elapsed / player.duration : 0;
+
+  const chooseConcern = (key) => {
+    setConcern(key);
+    player.setIndex(0); player.setElapsed(0);
+    setPickerOpen(false);
+    if (user?.id) saveRelaxationSession(user.id, { reason: key, transcript: [] }).catch(() => {});
+  };
+
+  // Once the patient has listened (a track finished, or ≥ 2 minutes), offer
+  // the feedback form; it opens automatically when a track ends.
+  useEffect(() => {
+    if (player.playing && player.elapsed >= 120) setListened(true);
+    if (!player.playing && player.duration && player.elapsed >= player.duration && !player.loop) { setListened(true); setFeedbackOpen(true); }
+  }, [player.playing, player.elapsed, player.duration, player.loop]);
+
+  const submitFeedback = () => {
+    if (!feedback.after || !feedback.helped) return;
+    saveRelaxationSession(user.id, { reason: concern, raag: current.name, transcript: [], feedback: { ...feedback, at: new Date().toISOString() } })
+      .catch(() => {})
+      .finally(() => { setFeedbackDone(true); setFeedbackOpen(false); });
+  };
+
+  // Before-Session "I feel ___" check-in — once per day is enough; we key it
+  // off today's date so it doesn't block a patient re-entering the same
+  // Relaxation page repeatedly within one sitting.
+  const todaySeed = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  useEffect(() => {
+    if (!user?.id) return;
+    getSessionFeedback(user.id, { stage: 'before' })
+      .then((rows) => setBeforeFeelingDone(rows.some((r) => r.createdAt?.slice(0, 10) === todaySeed && r.sessionType === 'relaxation')))
+      .catch(() => setBeforeFeelingDone(true)); // fail open rather than block listening
+  }, [user?.id, todaySeed]);
+
+  const submitBeforeFeeling = (answers) => {
+    setFeelingSaving(true);
+    submitSessionFeedback(user.id, { stage: 'before', appointmentId: null, answers, sessionType: 'relaxation' })
+      .then(() => setBeforeFeelingDone(true))
+      .catch((err) => console.error('Failed to submit before-session feeling check-in:', err))
+      .finally(() => setFeelingSaving(false));
+  };
+
+  const submitAfterFeeling = (answers) => {
+    setFeelingSaving(true);
+    submitSessionFeedback(user.id, { stage: 'after', appointmentId: null, answers, sessionType: 'relaxation' })
+      .then(() => setAfterFeelingDone(true))
+      .catch((err) => console.error('Failed to submit after-session feeling check-in:', err))
+      .finally(() => setFeelingSaving(false));
+  };
+
+  if (loading) return <PortalLoading />;
+  if (error) return <PortalError message={error} onRetry={reload} onLogout={logout} />;
+  if (paidToday === false) return <Navigate to="/relaxation/intake" replace />;
+  if (paidToday === null) return <PortalLoading />;
+
+  if (beforeFeelingDone === false) {
+    return (
+      <PatientDashboardLayout active="relaxation" user={user} onLogout={logout}>
+        <div className="max-w-2xl mx-auto py-6">
+          <SessionFeelingFeedback stage="before" seed={`relaxation-${todaySeed}`} onSubmit={submitBeforeFeeling} submitting={feelingSaving} />
+        </div>
+      </PatientDashboardLayout>
+    );
+  }
+
+  return (
+    <PatientDashboardLayout active="relaxation" user={user} onLogout={logout}>
+      {feedbackOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 overflow-y-auto py-8" onClick={() => setFeedbackOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-7 my-auto" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Relaxation feedback</p>
+            <h2 className="text-xl font-bold text-slate-900 mt-1">How do you feel after {current.name}?</h2>
+            <p className="text-sm text-slate-500 mt-1 mb-5">Two taps and an optional note — your therapist reads these.</p>
+            <p className="text-xs font-bold text-slate-600 mb-2">Right now I feel</p>
+            <div className="grid grid-cols-5 gap-2 mb-5">
+              {[['Struggling', '😔'], ['Low', '🙁'], ['Okay', '😐'], ['Calm', '🙂'], ['Peaceful', '😌']].map(([v, e]) => { const on = feedback.after === v; return <button key={v} type="button" onClick={() => setFeedback((f) => ({ ...f, after: v }))} className={`rounded-2xl border py-3 flex flex-col items-center gap-1 ${on ? 'shadow-md' : 'border-black/5 bg-[#FBFAF6]'}`} style={on ? { background: '#E6F0EA', borderColor: TEAL } : undefined}><span className="text-2xl">{e}</span><span className="text-[11px] font-bold text-slate-600">{v}</span></button>; })}
+            </div>
+            <p className="text-xs font-bold text-slate-600 mb-2">Did this raag help with {concernLabel?.toLowerCase()}?</p>
+            <div className="flex gap-2 mb-5">{['Yes', 'Somewhat', 'No'].map((v) => { const on = feedback.helped === v; return <button key={v} type="button" onClick={() => setFeedback((f) => ({ ...f, helped: v }))} className={`flex-1 rounded-xl border py-2.5 text-sm font-bold ${on ? 'text-white' : 'border-black/10 text-slate-600'}`} style={on ? { background: TEAL, borderColor: TEAL } : undefined}>{v}</button>; })}</div>
+            <textarea rows={2} value={feedback.note} onChange={(e) => setFeedback((f) => ({ ...f, note: e.target.value }))} placeholder="Anything you noticed (optional)" className="w-full px-4 py-3 bg-[#FBFAF6] border border-black/5 rounded-2xl text-sm resize-none mb-5" />
+            <div className="flex justify-end gap-2 mb-6">
+              <button type="button" onClick={() => setFeedbackOpen(false)} className="px-4 py-2.5 text-sm font-bold text-slate-500">Later</button>
+              <button type="button" onClick={submitFeedback} disabled={!feedback.after || !feedback.helped} className="px-6 py-2.5 rounded-2xl text-sm font-bold text-white disabled:opacity-40" style={{ background: TEAL }}>Send feedback</button>
+            </div>
+
+            {!afterFeelingDone && (
+              <div className="border-t border-black/5 pt-5">
+                <p className="text-xs font-bold text-slate-600 mb-3">A slightly longer After-Session check-in (optional but helpful for your therapist):</p>
+                <SessionFeelingFeedback stage="after" seed={`relaxation-${todaySeed}`} onSubmit={submitAfterFeeling} submitting={feelingSaving} onSkip={() => setAfterFeelingDone(true)} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 -mt-2">
+        {/* Left column — concern + recommended raags */}
+        <aside>
+          <p className="text-base font-semibold text-slate-800 mb-3">Your concern</p>
+          <div className="relative mb-7">
+            <button
+              type="button"
+              onClick={() => setPickerOpen((o) => !o)}
+              className="w-full bg-white border border-black/10 rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left shadow-sm hover:border-black/20"
+            >
+              <span className="w-9 h-9 rounded-full flex items-center justify-center bg-[#F6F4EC]" style={{ color: TEAL }}>
+                <LotusIcon className="w-4 h-4" />
+              </span>
+              <span className="flex-1 text-base font-semibold text-slate-900">{concernLabel}</span>
+              <svg className={`w-4 h-4 text-slate-400 transition-transform ${pickerOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+            {pickerOpen && (
+              <div className="absolute z-20 mt-2 w-full bg-white border border-black/10 rounded-2xl shadow-xl max-h-72 overflow-y-auto py-1.5">
+                {CONCERNS.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => chooseConcern(c.key)}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-[#F6F4EC] ${c.key === concern ? 'font-bold' : 'text-slate-700'}`}
+                    style={c.key === concern ? { color: TEAL } : undefined}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-base font-semibold text-slate-800 mb-3">Recommended raags</p>
+          <div className="space-y-3">
+            {raags.map((r, i) => {
+              const active = i === player.index;
+              return (
+                <button
+                  key={r.name}
+                  type="button"
+                  onClick={() => player.select(i)}
+                  className={`w-full text-left rounded-2xl border px-3 py-3 flex items-center gap-3 transition-all ${active ? 'border-[#0d5239]/30 bg-[#E6F0EA] shadow-sm' : 'border-black/5 bg-white hover:border-black/15'}`}
+                >
+                  <RaagArt hue={r.hue} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-slate-900 truncate">{r.name}</span>
+                    <span className="block text-xs text-slate-500 truncate">{r.note}</span>
+                    <span className="block text-[11px] text-slate-400 mt-0.5">{r.length}</span>
+                  </span>
+                  {active && <BarsIcon className={`w-4 h-4 shrink-0 ${player.playing ? 'animate-pulse' : ''}`} style={{ color: TEAL }} />}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* Right column — player */}
+        <section className="relative rounded-[28px] overflow-hidden min-h-[640px] flex flex-col shadow-sm border border-black/5">
+          <img src="/assets/meditation-glow.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(255,250,240,0.15) 0%, rgba(255,250,240,0.55) 55%, rgba(253,246,238,0.95) 100%)' }} />
+
+          <div className="relative flex-1 flex flex-col p-6 md:p-10">
+            <p className="text-sm font-semibold text-slate-800/80">{player.playing ? 'Now playing' : 'Paused'}</p>
+
+            <div className="mt-auto max-w-lg">
+              <p className="font-serif italic text-lg text-slate-700">Relaxation session</p>
+              <h1 className="font-serif text-4xl md:text-5xl text-slate-900 mt-1">{current.name}</h1>
+              <p className="font-serif text-lg text-slate-700 mt-2">{current.note}</p>
+              <div className="flex items-center gap-3 my-5">
+                <span className="h-px w-24 bg-slate-500/30" />
+                <LotusIcon className="w-5 h-5 text-slate-600" />
+                <span className="h-px w-24 bg-slate-500/30" />
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">{current.blurb}</p>
+            </div>
+
+            {/* Transport */}
+            <div className="mt-10 mx-auto w-full max-w-lg">
+              <div
+                role="slider"
+                aria-label="Seek"
+                aria-valuenow={Math.round(progress * 100)}
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); player.seek((e.clientX - r.left) / r.width); }}
+                className="h-2 rounded-full bg-slate-500/25 relative cursor-pointer"
+              >
+                <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${progress * 100}%`, background: TEAL }} />
+                <span className="absolute -top-1 w-4 h-4 rounded-full shadow" style={{ left: `calc(${progress * 100}% - 8px)`, background: TEAL }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-600 mt-2">
+                <span>{player.fmt(player.elapsed)}</span><span>{current.length}</span>
+              </div>
+              <div className="flex items-center justify-center gap-7 mt-5 text-slate-700">
+                <button type="button" aria-label="Shuffle" aria-pressed={player.shuffle} onClick={() => player.setShuffle((v) => !v)} className={player.shuffle ? '' : 'opacity-50'} style={player.shuffle ? { color: TEAL } : undefined}><ShuffleIcon className="w-5 h-5" /></button>
+                <button type="button" aria-label="Previous" onClick={player.prev} className="hover:scale-110 transition-transform"><PrevIcon className="w-6 h-6" /></button>
+                <button type="button" aria-label={player.playing ? 'Pause' : 'Play'} onClick={player.toggle} className="w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 transition-transform" style={{ background: TEAL }}>
+                  {player.playing
+                    ? <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                    : <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>}
+                </button>
+                <button type="button" aria-label="Next" onClick={player.next} className="hover:scale-110 transition-transform"><NextIcon className="w-6 h-6" /></button>
+                <button type="button" aria-label="Repeat" aria-pressed={player.loop} onClick={() => player.setLoop((v) => !v)} className={player.loop ? '' : 'opacity-50'} style={player.loop ? { color: TEAL } : undefined}><RepeatIcon className="w-5 h-5" /></button>
+              </div>
+              <p className="text-center text-xs text-slate-500 mt-4">A calming tanpura drone plays until the recorded raag tracks are uploaded.</p>
+              {(listened || feedbackDone) && (
+                <div className="flex justify-center mt-3">
+                  {feedbackDone ? <span className="text-xs font-semibold" style={{ color: TEAL }}>Thank you — feedback sent to your therapist.</span>
+                    : <button type="button" onClick={() => setFeedbackOpen(true)} className="px-4 py-2 rounded-xl text-xs font-bold border" style={{ borderColor: TEAL, color: TEAL }}>Finished listening? Share feedback</button>}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex items-center justify-between text-xs text-slate-600">
+              <span className="flex items-center gap-2"><LotusIcon className="w-4 h-4" /> Music heals. You&apos;re doing great.</span>
+              <span className="flex items-center gap-2">
+                <button type="button" aria-label={player.volume ? 'Mute' : 'Unmute'} onClick={() => player.setVolume(player.volume ? 0 : 0.6)}><VolumeIcon className="w-4 h-4" /></button>
+                <input type="range" min={0} max={1} step={0.02} value={player.volume} onChange={(e) => player.setVolume(Number(e.target.value))} aria-label="Volume" className="w-24 accent-[#0d5239]" />
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </PatientDashboardLayout>
+  );
+}
+
+function RaagArt({ hue }) {
+  return (
+    <span
+      className="w-14 h-14 rounded-xl shrink-0 flex items-center justify-center text-white/90"
+      style={{ background: `linear-gradient(145deg, hsl(${hue} 45% 62%), hsl(${(hue + 40) % 360} 40% 38%))` }}
+    >
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-2v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-2c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+    </span>
+  );
+}
+
+function LotusIcon({ className, style }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20c-3-1.5-5.5-4-6-7.5C8 13 10 14.5 12 17c2-2.5 4-4 6-4.5-.5 3.5-3 6-6 7.5z" />
+      <path d="M12 17c-1.5-3-1.5-7 0-10 1.5 3 1.5 7 0 10z" />
+      <path d="M4 15c1 .2 2 .6 3 1.2M20 15c-1 .2-2 .6-3 1.2" />
+    </svg>
+  );
+}
+function BarsIcon(props) { return (<svg {...props} viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="12" width="3" height="8" rx="1" /><rect x="10.5" y="7" width="3" height="13" rx="1" /><rect x="17" y="3" width="3" height="17" rx="1" /></svg>); }
+function ShuffleIcon(props) { return (<svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>); }
+function PrevIcon(props) { return (<svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6l-10 6 10 6z" /></svg>); }
+function NextIcon(props) { return (<svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l10 6-10 6z" /></svg>); }
+function RepeatIcon(props) { return (<svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3" /></svg>); }
+function VolumeIcon(props) { return (<svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7" /></svg>); }
