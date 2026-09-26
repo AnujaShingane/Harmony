@@ -2,10 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-// Shared top navigation for every public (logged-out) page: landing, login,
-// register. Logo on the left always returns to the landing page; Home,
-// About us, Login and Get started on the right. `tone="dark"` is used on the
-// landing hero photo; `tone="light"` on the cream auth pages.
+// Shared navigation for public pages and authenticated entry points.
 export default function PublicNav({ tone = 'light', scrolled = false }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -13,7 +10,6 @@ export default function PublicNav({ tone = 'light', scrolled = false }) {
 
   const { user, logout } = useAuth();
   const dashboardPath = user?.role === 'therapist' ? '/therapist' : user?.role === 'admin' ? '/admin' : '/dashboard';
-  const goAbout = () => { setOpen(false); navigate('/about'); };
   const doLogout = () => { setOpen(false); logout(); navigate('/login'); };
 
   const linkCls = dark
@@ -31,22 +27,23 @@ export default function PublicNav({ tone = 'light', scrolled = false }) {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 flex items-center justify-between">
         <Link to="/" aria-label="Anahat Transformations — home" className="flex items-center gap-3 shrink-0">
           <img src="/assets/anahat-logo.png" alt="" className="w-14 h-14 sm:w-16 sm:h-16 object-contain" />
-          <span className={`font-display leading-tight ${dark ? 'text-white photo-text-shadow' : 'text-[#0d5239]'}`}>
+          <span className={`font-display leading-tight ${dark ? 'text-white photo-text-shadow' : 'text-[#303b42]'}`}>
             <span className="block text-xl sm:text-2xl font-semibold">Anahat</span>
             <span className={`block text-xs sm:text-sm ${dark ? 'text-white/80' : 'text-slate-500'}`}>Transformations</span>
           </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-7 text-sm font-semibold">
-          <Link to="/" className={linkCls}>Home</Link>
-          <button type="button" onClick={goAbout} className={linkCls}>About us</button>
+          <Link to="/demo" className={linkCls}>Demo</Link>
+          <Link to="/#relaxation" className={linkCls}>Relaxation</Link>
+          <Link to="/register?journey=consultation" className={linkCls}>Consultation</Link>
           {user ? (
             <>
               <button type="button" onClick={doLogout} className={linkCls}>Logout</button>
               <Link
                 to={dashboardPath}
                 className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
-                  dark ? 'bg-white text-[#0d5239] hover:bg-teal-50' : 'bg-[#0d5239] text-white hover:bg-[#083b29]'
+                  dark ? 'bg-white text-[#d65b38] hover:bg-[#fff5ef]' : 'bg-[#e85d35] text-white hover:bg-[#d84d2c]'
                 }`}
               >
                 My dashboard
@@ -55,13 +52,8 @@ export default function PublicNav({ tone = 'light', scrolled = false }) {
           ) : (
             <>
               <Link to="/login" className={linkCls}>Login</Link>
-              <Link
-                to="/register"
-                className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
-                  dark ? 'bg-white text-[#0d5239] hover:bg-teal-50' : 'bg-[#0d5239] text-white hover:bg-[#083b29]'
-                }`}
-              >
-                Get started
+              <Link to="/register" className="px-5 py-2.5 rounded-full text-sm font-bold text-white transition-colors bg-[#e85d35] hover:bg-[#d84d2c]">
+                Sign Up
               </Link>
             </>
           )}
@@ -81,8 +73,9 @@ export default function PublicNav({ tone = 'light', scrolled = false }) {
 
       {open && (
         <div className={`md:hidden mt-2 mx-4 rounded-2xl overflow-hidden shadow-2xl border ${dark ? 'bg-[#10201c]/95 border-white/10 text-white' : 'bg-white border-black/5 text-slate-800'}`}>
-          <Link to="/" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-semibold">Home</Link>
-          <button type="button" onClick={goAbout} className="w-full text-left px-5 py-3.5 text-sm font-semibold">About us</button>
+          <Link to="/demo" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-semibold">Demo</Link>
+          <Link to="/#relaxation" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-semibold">Relaxation</Link>
+          <Link to="/register?journey=consultation" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-semibold">Consultation</Link>
           {user ? (
             <>
               <Link to={dashboardPath} onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-bold text-teal-400">My dashboard</Link>
@@ -91,7 +84,7 @@ export default function PublicNav({ tone = 'light', scrolled = false }) {
           ) : (
             <>
               <Link to="/login" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-semibold">Login</Link>
-              <Link to="/register" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-bold text-teal-400">Get started</Link>
+              <Link to="/register" onClick={() => setOpen(false)} className="block px-5 py-3.5 text-sm font-bold text-[#e85d35]">Sign Up</Link>
             </>
           )}
         </div>

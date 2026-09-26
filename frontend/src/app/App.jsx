@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from "../pages/marketing/LandingPage";
 import About from "../pages/marketing/About";
+import DemoPage from "../pages/marketing/DemoPage";
 import Login from "../pages/auth/Login";
 import AuthCallback from "../pages/auth/AuthCallback";
 import Register from "../pages/auth/Register";
@@ -25,6 +26,8 @@ import CaregiverDashboard from "../pages/caregiver/CaregiverDashboard";
 import CaregiverReportPage from "../pages/caregiver/CaregiverReportPage";
 import Dashboard from "../pages/patient/Dashboard";
 import BookSession from "../pages/patient/BookSession";
+import FindTherapist from "../pages/patient/FindTherapist";
+import TherapistProfilePage from "../pages/patient/TherapistProfilePage";
 import Appointments from "../pages/patient/Appointments";
 import Tracking from "../pages/patient/Tracking";
 import Messages from "../pages/patient/Messages";
@@ -54,6 +57,7 @@ function App() {
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/about" element={<About />} />
+      <Route path="/demo" element={<DemoPage />} />
       <Route path="/begin" element={<Navigate to="/register" replace />} />
       <Route path="/role-select" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
@@ -73,7 +77,7 @@ function App() {
 
       {/* Professional Consultation flow — each page renders on PatientDashboardLayout directly */}
       <Route path="/consultation/documents" element={<ProtectedRoute><DocumentUpload /></ProtectedRoute>} />
-      <Route path="/consultation" element={<Navigate to="/consultation/appointment" replace />} />
+      <Route path="/consultation" element={<Navigate to="/register?journey=consultation" replace />} />
       <Route path="/consultation/appointment" element={<Navigate to="/dashboard/book-session" replace />} />
       <Route path="/consultation/music" element={<ProtectedRoute><MusicPreference /></ProtectedRoute>} />
       <Route path="/consultation/feedback" element={<ProtectedRoute><WeeklyFeedback /></ProtectedRoute>} />
@@ -169,6 +173,8 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/dashboard/find-therapist" element={<ProtectedRoute><FindTherapist /></ProtectedRoute>} />
+      <Route path="/dashboard/therapists/:therapistId" element={<ProtectedRoute><TherapistProfilePage /></ProtectedRoute>} />
       <Route
         path="/dashboard/appointments"
         element={

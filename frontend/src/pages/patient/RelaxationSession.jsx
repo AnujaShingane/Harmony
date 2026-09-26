@@ -98,9 +98,31 @@ const RAAGS = {
   ],
 };
 
+const CONCERN_TERMS = {
+  anger: ['anger', 'angry', 'irritated', 'irritation', 'temper'],
+  frustration: ['frustrated', 'frustration', 'impatient', 'blocked'],
+  stress: ['stress', 'stressed', 'pressure', 'overwhelmed', 'workload', 'tension'],
+  anxiety: ['anxiety', 'anxious', 'worry', 'worried', 'panic', 'nervous', 'calm', 'relax', 'unwind'],
+  sadness: ['sad', 'sadness', 'low mood', 'down', 'heartbroken'],
+  overthinking: ['overthinking', 'racing thoughts', 'rumination', 'cannot switch off'],
+  sleep: ['sleep', 'insomnia', 'bedtime', 'night', 'rest', 'unwind before bed'],
+  restlessness: ['restless', 'restlessness', 'agitated', 'fidgety'],
+  loneliness: ['lonely', 'loneliness', 'isolated', 'alone'],
+  fear: ['fear', 'afraid', 'scared', 'courage'],
+  burnout: ['burnout', 'exhausted', 'drained', 'fatigue'],
+  motivation: ['motivation', 'unmotivated', 'energy', 'fresh start'],
+  grief: ['grief', 'grieving', 'loss', 'mourning'],
+  focus: ['focus', 'concentration', 'concentrate', 'study', 'attention'],
+};
+
 export default function RelaxationSession() {
   const { user, loading, error, reload, logout } = usePatientSession();
-  const [concern, setConcern] = useState('anger');
+  const [concern, setConcern] = useState('');
+  const [practiceInput, setPracticeInput] = useState('');
+  const [searchMode, setSearchMode] = useState(false);
+  const [matchedConcern, setMatchedConcern] = useState('');
+  const [matchedRequest, setMatchedRequest] = useState('');
+  const [searchError, setSearchError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [listened, setListened] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -116,17 +138,43 @@ export default function RelaxationSession() {
     getRelaxationPaymentStatus(user.id).then((s) => setPaidToday(!!s.paid)).catch(() => setPaidToday(false));
   }, [user?.id]);
 
-  const raags = useMemo(() => RAAGS[concern] || RAAGS.anger, [concern]);
-  const player = useRaagPlayer(raags);
-  const current = raags[Math.min(player.index, raags.length - 1)];
-  const concernLabel = CONCERNS.find((c) => c.key === concern)?.label;
+  const raags = useMemo(() => searchMode ? (matchedConcern ? RAAGS[matchedConcern] || [] : []) : (concern ? RAAGS[concern] || [] : []), [concern, matchedConcern, searchMode]);
+  const playerTracks = raags.length ? raags : RAAGS.anger;
+  const player = useRaagPlayer(playerTracks);
+  const current = playerTracks[Math.min(player.index, playerTracks.length - 1)];
+  const concernLabel = searchMode
+    ? CONCERNS.find((c) => c.key === matchedConcern)?.label || 'Your request'
+    : CONCERNS.find((c) => c.key === concern)?.label || 'Choose a concern';
+  const hasFocus = searchMode ? Boolean(matchedConcern) : Boolean(concern);
   const progress = player.duration ? player.elapsed / player.duration : 0;
 
   const chooseConcern = (key) => {
     setConcern(key);
-    player.setIndex(0); player.setElapsed(0);
+    setSearchMode(false);
+    setMatchedConcern('');
+    setMatchedRequest('');
+    setSearchError('');
+    player.select(0);
     setPickerOpen(false);
     if (user?.id) saveRelaxationSession(user.id, { reason: key, transcript: [] }).catch(() => {});
+  };
+
+  const searchPractices = () => {
+    const query = practiceInput.trim().toLowerCase();
+    if (!query) { setSearchError('Describe what you would like support with.'); return; }
+    const matches = Object.entries(CONCERN_TERMS)
+      .map(([key, terms]) => ({ key, score: terms.reduce((score, term) => score + (query.includes(term) ? 1 : 0), 0) }))
+      .sort((a, b) => b.score - a.score);
+    const best = matches[0]?.score ? matches[0].key : '';
+    setSearchMode(true);
+    setMatchedConcern(best);
+    setMatchedRequest(practiceInput.trim());
+    setSearchError(best ? '' : 'No focused practice matched that wording. Try a feeling, goal, or concern such as sleep, stress, or focus.');
+    if (best) {
+      setConcern(best);
+      player.setIndex(0); player.setElapsed(0);
+      if (user?.id) saveRelaxationSession(user.id, { reason: best, transcript: [practiceInput.trim()] }).catch(() => {});
+    }
   };
 
   // Once the patient has listened (a track finished, or ≥ 2 minutes), offer
@@ -247,8 +295,24 @@ export default function RelaxationSession() {
             )}
           </div>
 
+          <form onSubmit={(e) => { e.preventDefault(); searchPractices(); }} className="mb-7">
+            <label htmlFor="practice-request" className="block text-sm font-semibold text-slate-800 mb-2">What would you like support with?</label>
+            <div className="flex gap-2">
+              <input
+                id="practice-request"
+                value={practiceInput}
+                onChange={(e) => setPracticeInput(e.target.value)}
+                placeholder="e.g. winding down before sleep"
+                className="min-w-0 flex-1 px-3 py-2.5 rounded-xl bg-white border border-black/10 text-sm outline-none focus:border-[#0d5239]/40"
+              />
+              <button type="submit" className="px-3 py-2.5 rounded-xl text-xs font-bold text-white" style={{ background: TEAL }}>Find</button>
+            </div>
+            {searchError && <p role="status" className="text-xs text-amber-800 mt-2">{searchError}</p>}
+          </form>
+
           <p className="text-base font-semibold text-slate-800 mb-3">Recommended raags</p>
-          <div className="space-y-3">
+          {searchMode && matchedConcern && <p className="text-xs text-slate-500 mb-3">Matched to “{matchedRequest}”</p>}
+          {hasFocus ? <div className="space-y-3">
             {raags.map((r, i) => {
               const active = i === player.index;
               return (
@@ -268,10 +332,16 @@ export default function RelaxationSession() {
                 </button>
               );
             })}
-          </div>
+          </div> : <p className="rounded-xl bg-[#fff8f2] px-4 py-3 text-xs leading-relaxed text-slate-500">Enter what you would like help with, or choose a concern to see focused practices.</p>}
         </aside>
 
         {/* Right column — player */}
+        {!hasFocus ? (
+          <section className="min-h-[640px] flex flex-col items-center justify-center rounded-[28px] border border-black/5 bg-[#fff8f2] p-8 text-center">
+            <h2 className="font-serif text-2xl text-slate-900">{searchMode ? 'No focused practice found' : 'Start with what you need'}</h2>
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600">{searchMode ? `We could not match “${matchedRequest}” to a specific relaxation focus. Try describing a feeling or goal, or choose a concern from the list.` : 'Describe a feeling or goal, or choose a concern, to see practices selected for you.'}</p>
+          </section>
+        ) : (
         <section className="relative rounded-[28px] overflow-hidden min-h-[640px] flex flex-col shadow-sm border border-black/5">
           <img src="/assets/meditation-glow.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(255,250,240,0.15) 0%, rgba(255,250,240,0.55) 55%, rgba(253,246,238,0.95) 100%)' }} />
@@ -335,6 +405,7 @@ export default function RelaxationSession() {
             </div>
           </div>
         </section>
+        )}
       </div>
     </PatientDashboardLayout>
   );

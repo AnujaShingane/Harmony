@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { getPatientNotifications, getPatientOnboarding, getProfile, getTrackCatalog, getJourney } from '../../services/api';
+import { getPatientNotifications, markPatientNotificationRead, getPatientOnboarding, getProfile, getTrackCatalog, getJourney } from '../../services/api';
 import anahatLogo from '../../assets/anahat-logo.png';
 import { initialsOf } from '../../utils/initials';
 import DashboardFooter from './DashboardFooter';
@@ -40,7 +40,7 @@ export const NAV_ITEMS = [
   { key: 'profile', label: 'My Profile', to: '/dashboard/profile', icon: UserIcon, keywords: 'account' },
   { key: 'settings', label: 'Settings', to: '/dashboard/settings', icon: SettingsIcon, keywords: 'password preferences demographic' },
 ];
-const SIDEBAR_ITEMS = NAV_ITEMS.filter((i) => !['profile', 'settings', 'notifications'].includes(i.key));
+const SIDEBAR_ITEMS = NAV_ITEMS.filter((i) => !['profile', 'settings', 'notifications', 'book-session', 'appointments'].includes(i.key));
 
 // `search` lets a page take over the header search bar:
 //   search={{ placeholder: 'Search tracks', value, onChange }}
@@ -51,12 +51,16 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState([]);
+  const [guideStep, setGuideStep] = useState(0);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [search, setSearch] = useState('');
   const menuRef = useRef(null);
+  const notificationRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [unreadCount, setUnreadCount] = useState(0);
   const [toasts, setToasts] = useState([]);
   // Generic "there's something new here" badge system — a nav item's key
   // shows a small dot when the feature has unseen new content. Currently
@@ -64,6 +68,16 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
   // it); other features can push into this same set the same way.
   const [newFeatureKeys, setNewFeatureKeys] = useState(new Set());
   const seenKey = user?.id ? `anahat_notif_seen_${user.id}` : null;
+  const guideKey = user?.id ? `anahat_patient_guide_${user.id}` : null;
+
+  useEffect(() => {
+    if (active === 'dashboard' && guideKey && !localStorage.getItem(guideKey)) setGuideOpen(true);
+  }, [active, guideKey]);
+
+  const closeGuide = () => {
+    if (guideKey) localStorage.setItem(guideKey, 'done');
+    setGuideOpen(false);
+  };
 
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
@@ -78,7 +92,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
       getPatientNotifications(user.id)
         .then((list) => {
           if (cancelled) return;
-          setUnreadCount(list.filter((n) => !n.read).length);
+          setNotificationItems(list);
           // Pop a toast for anything new since this browser last saw the list.
           const seen = new Set(JSON.parse(localStorage.getItem(seenKey) || '[]'));
           const fresh = list.filter((n) => !n.read && !seen.has(n.id));
@@ -171,6 +185,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
     const onClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
       if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
+      if (notificationRef.current && !notificationRef.current.contains(e.target)) setNotificationOpen(false);
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
@@ -186,6 +201,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
     navigate(item.to);
   };
   const isHome = location.pathname === '/dashboard';
+  const unreadCount = notificationItems.filter((notification) => !notification.read).length;
 
   const displayName = user?.name || user?.full_name || 'Patient';
   const avatarSrc = user?.avatarUrl || user?.avatar_url || (user?.avatarFileId ? `/api/profile/files/${user.avatarFileId}` : null);
@@ -329,16 +345,49 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
 
           <div className="flex items-center gap-4 ml-auto">
             {headerRight}
-            <button
-              onClick={() => navigate('/dashboard/notifications')}
-              className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F6F4EC] transition-all"
-              aria-label="Notifications"
-            >
-              <BellIcon className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white" style={{ background: '#DC2626' }} />
-              )}
+            <button type="button" onClick={() => navigate('/dashboard/find-therapist')} aria-label="Find your therapist" className="inline-flex items-center gap-2 rounded-full bg-[#e85d35] px-3 sm:px-4 py-2.5 text-[11px] sm:text-xs font-bold text-white hover:bg-[#d84d2c]">
+              <span className="sm:hidden">Find</span><span className="hidden sm:inline">Find your therapist</span>
             </button>
+            <div className="relative" ref={notificationRef}>
+              <button
+                type="button"
+                onClick={() => setNotificationOpen((open) => !open)}
+                className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F6F4EC] transition-all"
+                aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+                aria-expanded={notificationOpen}
+              >
+                <BellIcon className="w-5 h-5" />
+                {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full border-2 border-white px-1 text-[9px] font-bold leading-3 text-white" style={{ background: '#DC2626' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              </button>
+              {notificationOpen && (
+                <div className="absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-black/10 bg-white shadow-xl">
+                  <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-800">Notifications</p>
+                    {unreadCount > 0 && <span className="text-[11px] font-semibold text-[#d65b38]">{unreadCount} unread</span>}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notificationItems.length ? notificationItems.map((notification) => (
+                      <button key={notification.id} type="button" onClick={() => {
+                        if (notification.read) return;
+                        markPatientNotificationRead(user.id, notification.id)
+                          .then(() => setNotificationItems((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item)))
+                          .catch((err) => console.error('Failed to mark notification read:', err));
+                      }} className="w-full border-b border-black/5 px-4 py-3 text-left last:border-b-0 hover:bg-[#fff8f3]">
+                        <span className="flex items-start gap-2">
+                          {!notification.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#e85d35]" />}
+                          <span className="min-w-0 flex-1">
+                            <span className={`block text-xs ${notification.read ? 'font-medium text-slate-600' : 'font-bold text-slate-900'}`}>{notification.title || notification.message}</span>
+                            {(notification.body || notification.detail?.text) && <span className="mt-1 block text-[11px] leading-relaxed text-slate-500">{notification.body || notification.detail.text}</span>}
+                            <span className="mt-1 block text-[10px] text-slate-400">{notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}</span>
+                          </span>
+                        </span>
+                      </button>
+                    )) : <p className="px-4 py-6 text-center text-xs text-slate-500">No notifications yet.</p>}
+                  </div>
+                  <button type="button" onClick={() => { setNotificationOpen(false); navigate('/dashboard/notifications'); }} className="w-full border-t border-black/5 px-4 py-3 text-xs font-bold text-[#d65b38] hover:bg-[#fff8f3]">View notification history</button>
+                </div>
+              )}
+            </div>
 
             <div className="relative" ref={menuRef}>
               <button
@@ -445,6 +494,26 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
               >
                 Log Out
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {guideOpen && active === 'dashboard' && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/35 px-4" role="dialog" aria-modal="true" aria-labelledby="patient-guide-title">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#d65b38]">Getting started · {guideStep + 1} of 3</p>
+            <h2 id="patient-guide-title" className="mt-2 text-xl font-bold text-slate-900">{['Find a therapist', 'Review and book', 'Stay up to date'][guideStep]}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{[
+              'Use Find your therapist to browse registered therapists by concern, location, and date availability.',
+              'Open View profile for a therapist’s details, then choose Book appointment to select an available session.',
+              'Use the bell for new and previous notifications. Your profile menu contains your profile, settings, and logout.',
+            ][guideStep]}</p>
+            <div className="mt-6 flex items-center justify-between">
+              <button type="button" onClick={closeGuide} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Skip guide</button>
+              <div className="flex gap-2">
+                {guideStep > 0 && <button type="button" onClick={() => setGuideStep((step) => step - 1)} className="rounded-md border border-black/10 px-4 py-2 text-xs font-semibold text-slate-700">Back</button>}
+                <button type="button" onClick={() => guideStep === 2 ? closeGuide() : setGuideStep((step) => step + 1)} className="rounded-md bg-[#e85d35] px-4 py-2 text-xs font-semibold text-white">{guideStep === 2 ? 'Done' : 'Next'}</button>
+              </div>
             </div>
           </div>
         </div>

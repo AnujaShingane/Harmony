@@ -326,6 +326,7 @@ function toTherapistShape(t, surveyByUserId = {}) {
     location: tp.address || '',
     bio: tp.bio || survey.bio || '',
     avatarUrl: t.avatarFileId ? `/api/profile/files/${t.avatarFileId}` : null,
+    availability: t.slots || [],
     profile: {
       fullName,
       avatarUrl: t.avatarFileId ? `/api/profile/files/${t.avatarFileId}` : t.profile?.avatarUrl,

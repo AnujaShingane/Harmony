@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import PublicNav from '../../components/public/PublicNav';
 import PublicFooter from '../../components/public/PublicFooter';
 import { ANAHAT_SERVICES } from '../../constants/services';
 
 export default function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
-  const navigate = useNavigate();
   const location = useLocation();
   // Nav turns solid once the visitor scrolls the window.
   useEffect(() => {
@@ -24,79 +23,108 @@ export default function LandingPage() {
   }, [location.hash]);
 
   return (
-    <div className="min-h-screen bg-[#0B1310] text-slate-900 font-sans relative selection:bg-teal-400/30">
-      {/* One fixed photo behind the whole page; hero, about, services and
-          footer scroll over it. */}
-      <div className="fixed inset-0 z-0">
-        <img src="/assets/hero-instruments-dark.png" alt="" className="w-full h-full object-cover object-[70%_center]" />
-        <div className="absolute inset-0 bg-[#F8F3E7]/20"></div>
-      </div>
+    <div className="home-page min-h-screen bg-[#fffdfa] text-[#303b42] font-sans selection:bg-[#f6c9b5]">
+      <PublicNav tone="light" scrolled={scrollY > 40} />
 
-      <PublicNav tone="dark" scrolled={scrollY > 40} />
-
-      {/* --- HERO --- */}
-      <section className="relative min-h-screen flex items-end overflow-hidden z-10">
-        <div className="relative z-10 max-w-7xl mx-auto w-full px-6 pt-36 pb-24 sm:pb-20">
-          <div className="max-w-2xl space-y-7">
-            <h1 className="font-display text-6xl sm:text-7xl md:text-8xl leading-[0.9] text-[#341539] tracking-tighter">
-              TUNE <br />
-              <span className="italic text-transparent bg-clip-text bg-gradient-to-r from-[#341539] via-[#8A5A6F] to-[#C9A15A] animate-shimmer bg-[length:200%_auto]">YOURSELF.</span>
-            </h1>
-
-            <div className="flex items-center gap-3 py-1">
-              <span className="h-px w-8 bg-teal-700/30"></span>
-              <LotusIcon className="w-4 h-4 text-teal-700" />
-              <span className="h-px w-8 bg-teal-700/30"></span>
-            </div>
-
-            <p className="text-base sm:text-xl text-[#3B2A38]/90 max-w-lg font-light leading-relaxed">
-              Where the ancient mathematics of the <strong className="text-teal-700 font-semibold">Vedas</strong> meets modern <strong className="text-teal-800 font-semibold">Sound Diagnostics</strong>.
-            </p>
-
-            <div className="pt-2">
-              <button onClick={() => navigate('/register')} className="hero-gold-btn inline-flex items-center gap-3 px-8 py-4 rounded-full text-xs font-bold uppercase tracking-widest">
-                <LotusIcon className="w-4 h-4 shrink-0" />
-                Start Your Healing Journey
-                <ArrowRightIcon className="w-4 h-4 shrink-0" />
+      <main>
+        <section className="min-h-screen bg-[#fff8f3] pt-20">
+          <div className="max-w-7xl mx-auto min-h-[calc(100vh-5rem)] grid grid-cols-1 md:grid-cols-2 items-center gap-8 px-6 py-10 md:py-12">
+            <div className="py-4 md:py-8">
+              <h1 className="home-title text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight text-[#303b42]">
+                TUNE <span className="text-[#e85d35]">YOURSELF</span>
+              </h1>
+              <p className="mt-4 max-w-lg text-sm sm:text-base leading-relaxed text-[#778087]">
+                Personalized music and AI-powered guidance for your mental, emotional and spiritual well-being.
+              </p>
+              <button onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' })} className="mt-6 inline-flex items-center gap-3 rounded-full bg-[#e85d35] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#d84d2c]">
+                Explore Our Services <ArrowRightIcon className="w-4 h-4" />
               </button>
             </div>
+            <div className="relative h-56 sm:h-72 md:h-[320px] overflow-hidden">
+              <img src="/assets/meditation-glow.jpg" alt="A quiet mountain landscape at dusk" className="h-full w-full object-cover object-center" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#fff8f3]/45 via-transparent to-transparent" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* --- ANAHAT SERVICES (sliding) --- */}
-      <section id="services" className="relative z-10 pb-28 pt-4">
-        <div className="max-w-7xl mx-auto px-6 mb-10 text-center">
-          <h2 className="photo-text-shadow font-display text-5xl text-white font-semibold">Anahat services</h2>
-          <p className="photo-text-shadow text-white/80 mt-3 text-sm md:text-base">Music-therapy programmes, each designed around one need.</p>
-        </div>
-        <ServicesSlider />
-      </section>
+        <section id="relaxation" className="scroll-mt-20 min-h-[85vh] max-w-7xl mx-auto px-6 py-10 md:py-12">
+          <div className="flex items-end justify-between gap-4 mb-5">
+            <div>
+              <h2 className="section-title text-xl font-semibold uppercase text-[#303b42]">Relaxation</h2>
+              <p className="mt-1 text-sm text-[#858d91]">Choose a practice for how you feel today.</p>
+            </div>
+            <Link to="/demo" className="text-xs font-semibold text-[#d65b38] hover:underline">See all <span aria-hidden="true">→</span></Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {[
+              { title: 'Frustration', image: '/assets/services/raagini.jpg', focus: 'Find calm in the chaos' },
+              { title: 'Emotions', image: '/assets/services/niramay.jpg', focus: 'Release. Reset. Restore.' },
+              { title: 'Mood', image: '/assets/services/swaravkash.jpg', focus: 'Bring balance to your day' },
+              { title: 'Anxiety', image: '/assets/services/arambh.jpg', focus: 'Calm your mind' },
+              { title: 'Sleep', image: '/assets/meditation-glow.jpg', focus: 'Rest. Rejuvenate.' },
+              { title: 'Focus', image: '/assets/services/swardhyan.jpg', focus: 'Return to the present' },
+            ].map((item) => (
+              <Link key={item.title} to={`/demo?practice=${encodeURIComponent(item.title.toLowerCase())}`} className="relax-card group relative h-44 w-52 shrink-0 overflow-hidden rounded-lg bg-[#f4e6dd] text-white">
+                <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/20" />
+                <span className="absolute left-4 top-3 text-xs font-semibold uppercase">{item.title}</span>
+                <span className="absolute bottom-4 left-4 right-3">
+                  <span className="block text-base font-semibold">{item.title}</span>
+                  <span className="mt-1 block text-xs text-white/85">{item.focus}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
-      <PublicFooter tone="dark" />
+        <section className="bg-[#fff5ef] py-8 md:py-10">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[280px_1fr_230px] gap-6 md:gap-8 items-center px-6">
+            <div className="relative h-56 md:h-64 overflow-hidden rounded-lg">
+              <img src="/assets/meditation-glow.jpg" alt="A peaceful landscape for a guided sleep practice" className="absolute inset-0 h-full w-full object-cover" />
+              <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-[#d65b38]">SLEEP</span>
+              <Link to="/demo" aria-label="Preview the featured sleep practice" className="absolute inset-0 flex items-center justify-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#e85d35] shadow">▶</span>
+              </Link>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-[#dd704e]">Featured relaxation</p>
+              <h2 className="mt-2 text-2xl font-semibold text-[#303b42]">Invite Sleep</h2>
+              <p className="mt-3 text-sm leading-relaxed text-[#727c82]">A simple guided practice to prepare your mind and body for restful sleep. Observe and gently soften your breath, weaving a sense of calm with each inhale and exhale.</p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs text-[#657078]">
+                <span className="rounded-full bg-white px-3 py-1.5">Yoga Nidra</span>
+                <span className="rounded-full bg-white px-3 py-1.5">Level 1</span>
+                <span className="rounded-full bg-white px-3 py-1.5">20 min</span>
+              </div>
+              <Link to="/register" className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#e85d35] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#d84d2c]">Play now <ArrowRightIcon className="w-4 h-4" /></Link>
+            </div>
+            <div className="border-t border-[#eadbd2] pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+              <h3 className="text-sm font-semibold text-[#303b42]">More relaxation</h3>
+              <ul className="mt-3 divide-y divide-[#eadbd2] text-sm text-[#69747a]">
+                {['Deep Rest & Relaxation', 'Morning Presence', 'Meditation with So Ham'].map((name) => <li key={name}><Link to="/relaxation" className="flex justify-between py-3 hover:text-[#d65b38]">{name}<span aria-hidden="true">›</span></Link></li>)}
+              </ul>
+              <Link to="/relaxation" className="mt-4 inline-block text-xs font-semibold text-[#d65b38] hover:underline">See all practices →</Link>
+            </div>
+          </div>
+        </section>
 
+        <section id="services" className="scroll-mt-24 max-w-7xl mx-auto px-6 py-10 md:py-12">
+          <div className="flex items-end justify-between gap-4 mb-5">
+            <div>
+              <h2 className="section-title text-xl font-semibold uppercase text-[#303b42]">Services</h2>
+              <p className="mt-1 text-sm text-[#858d91]">Holistic support for your mind, body and energy, all in one place.</p>
+            </div>
+            <Link to="/register?journey=consultation" className="text-xs font-semibold text-[#d65b38] hover:underline">Get started <span aria-hidden="true">→</span></Link>
+          </div>
+          <ServicesSlider />
+        </section>
+      </main>
+
+      <PublicFooter />
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&display=swap');
-        .font-display { font-family: 'Fraunces', ui-serif, Georgia, serif; }
-        @keyframes shimmer { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
-        .animate-shimmer { animation: shimmer 6s linear infinite; }
-
-        .hero-gold-btn {
-          background: rgba(13, 82, 57, 0.6);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(94, 234, 212, 0.35);
-          color: #ffffff;
-          box-shadow: 0 8px 24px -8px rgba(13, 82, 57, 0.4);
-          transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
-        }
-        .hero-gold-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(13, 82, 57, 0.78); }
-
-        /* Services marquee — one continuous slide, pauses on hover. */
-        @keyframes services-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        .services-track { animation: services-slide 45s linear infinite; width: max-content; }
-        .services-track:hover, .services-track.paused { animation-play-state: paused; }
-        @media (prefers-reduced-motion: reduce) { .services-track { animation: none; } }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap');
+        .home-title, .section-title { font-family: 'Manrope', sans-serif; }
+        .home-page { font-family: 'DM Sans', sans-serif; }
+        @media (prefers-reduced-motion: reduce) { .relax-card img, .service-tile { transition: none; } }
       `}</style>
     </div>
   );
@@ -106,39 +134,28 @@ export default function LandingPage() {
 // so the CSS translate of -50% loops seamlessly; arrows nudge the strip
 // manually and pause the auto-slide while the visitor is interacting.
 function ServicesSlider() {
-  const [paused, setPaused] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const items = [...ANAHAT_SERVICES, ...ANAHAT_SERVICES];
-  const step = 300;
-
-  const nudge = (dir) => {
-    setPaused(true);
-    setOffset((o) => o + dir * step);
-  };
+  const trackRef = useRef(null);
+  const nudge = (dir) => trackRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' });
 
   return (
     <div className="relative">
-      <div className="overflow-hidden">
-        <div
-          className={`services-track flex gap-6 px-6 ${paused ? 'paused' : ''}`}
-          style={{ marginLeft: offset ? `${-offset}px` : undefined, transition: 'margin-left 0.5s ease' }}
-        >
-          {items.map((s, i) => (
-            <figure
-              key={`${s.key}-${i}`}
-              className="w-[260px] sm:w-[280px] shrink-0 rounded-3xl overflow-hidden bg-white shadow-xl border border-white/30"
-            >
-              <img src={s.image} alt={`${s.name} — music therapy for ${s.focus.toLowerCase()}`} className="w-full aspect-square object-cover" loading="lazy" />
-            </figure>
-          ))}
-        </div>
+      <div ref={trackRef} className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3">
+        {ANAHAT_SERVICES.map((service) => (
+          <Link key={service.key} to="/register?journey=consultation" className="service-tile group w-56 shrink-0 snap-start overflow-hidden rounded-lg border border-[#f0e2da] bg-[#fff7f2] transition hover:-translate-y-1 sm:w-64">
+            <img src={service.image} alt={`${service.name}: ${service.focus}`} className="h-40 w-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
+            <div className="px-4 py-3">
+              <h3 className="text-sm font-semibold text-[#303b42]">{service.name}</h3>
+              <p className="mt-1 text-xs text-[#81898d]">{service.focus}</p>
+            </div>
+          </Link>
+        ))}
       </div>
 
-      <div className="flex items-center justify-center gap-3 mt-8">
-        <button type="button" onClick={() => nudge(-1)} aria-label="Previous" className="w-11 h-11 rounded-full bg-white/90 hover:bg-white text-[#0d5239] shadow-lg flex items-center justify-center">
+      <div className="flex justify-end gap-2 mt-3">
+        <button type="button" onClick={() => nudge(-1)} aria-label="Previous services" className="w-10 h-10 rounded-full border border-[#eadbd2] bg-white text-[#d65b38] flex items-center justify-center">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <button type="button" onClick={() => nudge(1)} aria-label="Next" className="w-11 h-11 rounded-full bg-white/90 hover:bg-white text-[#0d5239] shadow-lg flex items-center justify-center">
+        <button type="button" onClick={() => nudge(1)} aria-label="Next services" className="w-10 h-10 rounded-full border border-[#eadbd2] bg-white text-[#d65b38] flex items-center justify-center">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>

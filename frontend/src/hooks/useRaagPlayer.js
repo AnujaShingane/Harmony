@@ -73,7 +73,7 @@ export function useRaagPlayer(tracks) {
   }, [playing, duration, loop, next, tracks.length]);
 
   // (Re)start the drone whenever the track changes while playing.
-  useEffect(() => { if (playing) startDrone(track); else stopDrone(); }, [playing, index]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (playing) startDrone(track); else stopDrone(); }, [playing, index, track?.name, track?.hue]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { stopDrone(); ctxRef.current?.close?.(); }, [stopDrone]);
 
   const select = (i) => { setIndex(i); setElapsed(0); setPlaying(true); };

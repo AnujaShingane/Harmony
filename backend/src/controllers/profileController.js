@@ -27,7 +27,8 @@ export async function completePatientProfile(req, res) {
 export async function completeTherapistProfile(req, res) {
   const u = req.user;
   const b = req.body;
-  if (req.file) u.avatarFileId = await saveFile(u.id, 'avatar', req.file);
+  if (!req.file) return res.status(400).json({ message: 'Profile photo is required.' });
+  u.avatarFileId = await saveFile(u.id, 'avatar', req.file);
 
   await TherapistProfile.upsert({
     userId: u.id, age: b.age, gender: b.gender, experienceYears: b.experienceYears,

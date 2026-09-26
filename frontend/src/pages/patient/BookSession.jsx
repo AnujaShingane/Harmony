@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePatientSession } from '../../hooks/usePatientSession';
 import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
 import { PortalLoading, PortalError } from '../../components/layout/PortalStatus';
@@ -56,11 +56,12 @@ function isLikelyUrl(value) {
 export default function BookSession() {
   const { user, loading, error, reload, logout } = usePatientSession();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => searchParams.get('therapistId') ? 1 : 0);
   const [therapists, setTherapists] = useState(null);
   const [locationFilter, setLocationFilter] = useState('');
-  const [selectedTherapistId, setSelectedTherapistId] = useState(null);
+  const [selectedTherapistId, setSelectedTherapistId] = useState(() => searchParams.get('therapistId'));
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [occurrences, setOccurrences] = useState([]);
   const [selectedOccurrence, setSelectedOccurrence] = useState(null);

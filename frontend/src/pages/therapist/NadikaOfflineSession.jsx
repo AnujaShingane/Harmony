@@ -56,13 +56,28 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   const [results, setResults] = useState(null);     // {chakra, ragas, activities}
   const [contextText, setContextText] = useState('');
   const [openingQuestions, setOpeningQuestions] = useState([]);
-  const [openingSummary, setOpeningSummary] = useState('');
+  const [openingAnswers, setOpeningAnswers] = useState({});
   const [rx, setRx] = useState(null);              // prescription draft working copy {ragas, activities, note}
   const [rxSuggest, setRxSuggest] = useState(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
   const bottomRef = useRef(null);
+  const docRef = useRef(null);
   const booted = useRef(false);
+  docRef.current = doc;
+
+  useEffect(() => {
+    const guideKey = user?.id ? `anahat_assessment_guide_${user.id}` : null;
+    if (guideKey && !localStorage.getItem(guideKey)) setGuideOpen(true);
+  }, [user?.id]);
+
+  const closeGuide = () => {
+    if (user?.id) localStorage.setItem(`anahat_assessment_guide_${user.id}`, 'done');
+    setGuideOpen(false);
+  };
 
   const resetSessionState = () => {
+    docRef.current = null;
     setDoc(null);
     setRef(null);
     setEngineUp(null);
@@ -80,7 +95,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     setResults(null);
     setContextText('');
     setOpeningQuestions([]);
-    setOpeningSummary('');
+    setOpeningAnswers({});
     setRx(null);
     setRxSuggest(null);
   };
@@ -90,9 +105,9 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     setChat((c) => [...c, entry]);
     return entry;
   };
-  const persist = (entries) => doc && anahat.appendChat(doc.id, entries).catch(() => {});
+  const persist = (entries) => docRef.current && anahat.appendChat(docRef.current.id, entries).catch(() => {});
   const nadika = (text, card) => { const e = say('nadika', text, card); persist(e); return e; };
-  const me = (text) => { const e = say('therapist', text); persist(e); return e; };
+  const me = (text, extra) => { const e = say('therapist', text, null, extra); persist(e); return e; };
 
   const run = async (label, fn) => { setBusy(label); setError(''); try { return await fn(); } catch (e) { setError(e.message || 'Something went wrong'); return null; } finally { setBusy(''); } };
 
@@ -108,8 +123,13 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       setOnboarding(ob);
       const r = await run('Opening your session', () => anahat.create({ patientId, appointmentId, force: true }));
       if (!r) { setPhase('error'); return; }
-      const d = r.assessment; setDoc(d);
-      if (d.chatLog?.length) { setChat(d.chatLog.map((e) => ({ ...e, id: e.id || uid() }))); resumePhase(d); return; }
+      const d = r.assessment; docRef.current = d; setDoc(d);
+      if (d.chatLog?.length) {
+        setChat(d.chatLog.map((e) => ({ ...e, id: e.id || uid() })));
+        setOpeningAnswers(Object.fromEntries(d.chatLog.filter((e) => e.role === 'therapist' && e.openingQuestionId).map((e) => [e.openingQuestionId, e.text])));
+        resumePhase(d);
+        return;
+      }
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
       const first = (user?.name || 'there').split(' ')[0];
@@ -131,26 +151,19 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     if (!d.baseline) { setPhase('baseline'); return; }
     if (!d.therapistContext) { setPhase('context'); return; }
     if (!d.openingSetId) { setPhase('opening'); return; }
-    if (!d.openingSetId) {
-  setPhase('opening');
-  return;
-}
-
-if (
-  d.openingQuestions?.length &&
-  !(d.openingSummary || d.openingCompleted)
-) {
-  setOpeningQuestions(
-    d.openingQuestions.map((q) => ({
-      id: q.id,
-      text: q.text,
-    }))
-  );
-
-  setOpeningSummary(d.openingSummary || '');
-  setPhase('opening');
-  return;
-}
+    if (d.openingQuestions?.length && d.stage === 'opening') {
+      const questions = d.openingQuestions.map((q) => ({ id: q.id, text: q.text, opening: true }));
+      const next = questions.find((q) => !(d.askedQuestionIds || []).includes(q.id));
+      setOpeningQuestions(questions);
+      if (next) {
+        setCurrent(next);
+        setPhase('opening');
+        nadika(null, { type: 'opening', question: next, index: questions.indexOf(next), total: questions.length });
+        return;
+      }
+      suggestQuadrants(d);
+      return;
+    }
     if (!d.scope?.length) { setPhase('scope'); return; }
     for (let i = 0; i < d.scope.length; i += 1) {
       const q = (d.quadrantQuestions?.[d.scope[i]] || []).slice(0, 3).find((x) => !asked.has(x.id));
@@ -175,7 +188,7 @@ if (
 
     const r = await anahat.selectOpening(doc.id, FIXED_OPENING_SET_ID);
     const assessment = r.assessment;
-    const qs = (r.opening?.questions || []).map((q) => ({ id: q.id, text: q.text }));
+    const qs = (r.opening?.questions || []).map((q) => ({ id: q.id, text: q.text, opening: true }));
 
     if (qs.length !== 4) {
       throw new Error('The fixed opening questions must contain exactly 4 questions.');
@@ -183,85 +196,11 @@ if (
 
     setDoc(assessment);
     setOpeningQuestions(qs);
-    setOpeningSummary('');
-
-    nadika('Opening Questions', { type: 'opening', items: qs });
+    setCurrent(qs[0]);
+    nadika('I’ll ask one question at a time. Record the patient’s response to continue.');
+    nadika(null, { type: 'opening', question: qs[0], index: 0, total: qs.length });
     setPhase('opening');
   });
-
-const submitOpeningSummary = () => run(
-  'Analysing the opening conversation',
-  async () => {
-    const summary = openingSummary.trim();
-
-    if (!summary) {
-      throw new Error(
-        'Enter one combined summary of the patient’s responses.'
-      );
-    }
-
-    if (openingQuestions.length !== 4) {
-      throw new Error(
-        'The selected opening set must contain exactly 4 questions.'
-      );
-    }
-
-    // NOTE: this used to call anahat.submitOpeningSummary(), which does not
-    // exist anywhere in the stack (not in the frontend client, not as a
-    // Node route, not in the AI engine) — that is why the flow silently
-    // stopped here. The opening summary is just a patient response with no
-    // linked question/quadrant, so it goes through the exact same, already
-    // working submitResponse pathway every other answer in this file uses
-    // (Node -> POST /api/anahat/assessments/:id/responses -> engine POST
-    // /assessment/sessions/:id/responses), unchanged.
-    let r;
-    try {
-      r = await anahat.submitResponse(doc.id, { text: summary, questionId: null, question: null, quadrant: null, requestId: uid() });
-    } catch (e) {
-      if (['ENGINE_NOT_CONFIGURED', 'ENGINE_ERROR'].includes(e.code) || /not reachable|not fully configured/i.test(e.message)) {
-        r = await anahat.recordOffline(doc.id, { text: summary, questionId: null, question: null, quadrant: null, requestId: uid() });
-        nadika('Recorded. The AI engine is not available right now, so this answer was saved without analysis — it stays in the transcript.');
-      } else throw e;
-    }
-
-    const d = r.assessment;
-
-    setDoc(d);
-
-    me(`Opening summary:\n${summary}`);
-
-    setOpeningSummary('');
-    setOpeningQuestions([]);
-
-    if (r.status === 'SAFETY_ESCALATION') {
-      setPhase('safety');
-      nadika('Safety flag. What the patient said matched an immediate-risk signal. Please follow the Anahat safety protocol now; I will not analyse this further. Tell me when you have done so.', { type: 'safety', safety: r.safety });
-      return;
-    }
-
-    if (r.status && r.status !== 'RECORDED_WITHOUT_ENGINE') {
-      const concepts = (r.extraction?.concepts || []).map((c) => c.concept).filter(Boolean);
-      if ((r.candidates || []).length) {
-        // Same pattern as a normal answer: let the therapist confirm/reject
-        // candidates first. finishReview() already falls through to
-        // suggestQuadrants() once opening is done and scope is still empty.
-        setLastResponse(r);
-        nadika(`I heard: ${concepts.join(', ')}. These indicators may apply — confirm the ones that fit, reject the rest.`, { type: 'candidates', responseId: r.response_id, items: r.candidates });
-        setPhase('review');
-        return;
-      }
-      if (r.status === 'NO_VALID_INDICATOR') nadika(`I understood: ${concepts.join(', ') || 'no clear concept'}. No canonical indicator matched — that is expected for warm-up questions.`);
-      else nadika(`Understood: ${concepts.join(', ') || 'noted'}.`);
-    }
-
-    /*
-     * The opening conversation is now complete.
-     * Only after the single combined response has been analysed
-     * do we ask Nadika to suggest assessment areas.
-     */
-    await suggestQuadrants(d);
-  }
-);
 
   // Put the next unasked question on screen (or move the flow on).
   // 2–3 focused questions per quadrant, taken from the KB question bank the
@@ -279,7 +218,7 @@ const submitOpeningSummary = () => run(
     }
     setCurrent(null);
     setPhase('question');
-    nadika(null, { type: 'suggested', items: unaskedList, quadrant: unaskedList[0].quadrant });
+    nadika(null, { type: 'suggested', items: [unaskedList[0]], quadrant: unaskedList[0].quadrant });
   };
 
   // Exactly three actions, plus an AI-suggested new quadrant the therapist
@@ -342,6 +281,53 @@ const submitOpeningSummary = () => run(
 
   const submitAnswer = (text) => run('Analysing the response', async () => {
     const q = current;
+    if (q?.opening) {
+      const answers = { ...openingAnswers, [q.id]: text };
+      setOpeningAnswers(answers);
+      me(text, { openingQuestionId: q.id, openingQuestion: q.text });
+      const markedAsked = await anahat.markAsked(doc.id, q.id).catch(() => [...(doc.askedQuestionIds || []), q.id]);
+      const nextIndex = openingQuestions.findIndex((item) => !answers[item.id]);
+      if (nextIndex >= 0) {
+        setDoc({ ...doc, askedQuestionIds: markedAsked });
+        const next = openingQuestions[nextIndex];
+        setCurrent(next);
+        setPhase('opening');
+        nadika(null, { type: 'opening', question: next, index: nextIndex, total: openingQuestions.length });
+        return;
+      }
+      const combined = openingQuestions.map((item) => `${item.text}: ${answers[item.id]}`).join('\n');
+      let openingResult;
+      try {
+        openingResult = await anahat.submitResponse(doc.id, { text: combined, questionId: null, question: null, quadrant: null, requestId: uid() });
+      } catch (e) {
+        if (['ENGINE_NOT_CONFIGURED', 'ENGINE_ERROR'].includes(e.code) || /not reachable|not fully configured/i.test(e.message)) {
+          openingResult = await anahat.recordOffline(doc.id, { text: combined, questionId: null, question: null, quadrant: null, requestId: uid() });
+          nadika('Recorded. The AI engine is not available right now, so these opening answers were saved without analysis.');
+        } else throw e;
+      }
+      const openedDoc = { ...openingResult.assessment, askedQuestionIds: markedAsked };
+      setDoc(openedDoc);
+      if (openingResult.status === 'SAFETY_ESCALATION') {
+        setPhase('safety');
+        nadika('Safety flag. What the patient said matched an immediate-risk signal. Please follow the Anahat safety protocol now; I will not analyse this further. Tell me when you have done so.', { type: 'safety', safety: openingResult.safety });
+        return;
+      }
+      if (openingResult.status && openingResult.status !== 'RECORDED_WITHOUT_ENGINE') {
+        const concepts = (openingResult.extraction?.concepts || []).map((c) => c.concept).filter(Boolean);
+        if ((openingResult.candidates || []).length) {
+          setLastResponse(openingResult);
+          nadika(`I heard: ${concepts.join(', ')}. These indicators may apply — confirm the ones that fit, reject the rest.`, { type: 'candidates', responseId: openingResult.response_id, items: openingResult.candidates });
+          setPhase('review');
+          return;
+        }
+        if (openingResult.status === 'NO_VALID_INDICATOR') nadika(`I understood: ${concepts.join(', ') || 'no clear concept'}. No canonical indicator matched — that is expected for warm-up questions.`);
+        else nadika(`Understood: ${concepts.join(', ') || 'noted'}.`);
+      }
+      setCurrent(null);
+      setOpeningQuestions([]);
+      suggestQuadrants(openedDoc);
+      return;
+    }
     me(text);
     let r = null;
     try {
@@ -379,6 +365,21 @@ const submitOpeningSummary = () => run(
     return;
   }
 
+  if (current?.opening) {
+    const nextIndex = openingQuestions.findIndex((q) => !(d.askedQuestionIds || []).includes(q.id));
+    if (nextIndex >= 0) {
+      const next = openingQuestions[nextIndex];
+      setCurrent(next);
+      setPhase('opening');
+      nadika(null, { type: 'opening', question: next, index: nextIndex, total: openingQuestions.length });
+      return;
+    }
+    setCurrent(null);
+    setOpeningQuestions([]);
+    suggestQuadrants(d);
+    return;
+  }
+
   if (d.scope?.length && current?.quadrant) {
     askNext(
       d,
@@ -387,10 +388,7 @@ const submitOpeningSummary = () => run(
     return;
   }
 
-  /*
-   * Opening questions are handled as one combined summary.
-   * They must never return to askNext().
-   */
+  /* Opening questions are handled individually before scope selection. */
   if (!d.openingSetId) {
     setPhase('opening');
     return;
@@ -409,7 +407,7 @@ const submitOpeningSummary = () => run(
       .map((q) => ({ q, score: String(q.hint || q.text).toLowerCase().split(/\W+/).filter((w) => w.length > 3 && said.includes(w)).length }))
       .sort((a, b) => b.score - a.score);
     if (remaining.length) {
-      const items = remaining.slice(0, 3).map((r) => ({ ...r.q, deep: true }));
+      const items = remaining.slice(0, 1).map((r) => ({ ...r.q, deep: true }));
       setCurrent(null);
       setPhase('question');
       nadika(null, { type: 'suggested', items, quadrant, deep: true });
@@ -564,6 +562,26 @@ const submitOpeningSummary = () => run(
 
   return (
     <PageShell>
+      {guideOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 px-4" role="dialog" aria-modal="true" aria-labelledby="assessment-guide-title">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#d65b38]">Nadika.ai guide · {guideStep + 1} of 3</p>
+            <h2 id="assessment-guide-title" className="mt-2 text-xl font-bold text-slate-900">{['Ask the current question', 'Record the response', 'Review progress'][guideStep]}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{[
+              'Nadika presents one assessment question at a time. Read that prompt aloud to the patient.',
+              'Type the patient’s response in the answer field or chat composer and submit it. The next question appears after the response is recorded.',
+              'The header shows answered questions and assessment areas. Review any indicators Nadika flags, or use End Session when the assessment should stop.',
+            ][guideStep]}</p>
+            <div className="mt-6 flex items-center justify-between">
+              <button type="button" onClick={closeGuide} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Skip guide</button>
+              <div className="flex gap-2">
+                {guideStep > 0 && <button type="button" onClick={() => setGuideStep((step) => step - 1)} className="rounded-md border border-black/10 px-4 py-2 text-xs font-semibold text-slate-700">Back</button>}
+                <button type="button" onClick={() => guideStep === 2 ? closeGuide() : setGuideStep((step) => step + 1)} className="rounded-md bg-[#e85d35] px-4 py-2 text-xs font-semibold text-white">{guideStep === 2 ? 'Start assessment' : 'Next'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
           <button onClick={() => navigate('/therapist')} className="hover:text-slate-800">← Sessions</button><span>›</span><span className="text-slate-800 font-semibold">Offline session · {patientName}</span>
@@ -596,7 +614,7 @@ const submitOpeningSummary = () => run(
           <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5">
             {chat.map((m) => (
               <Message key={m.id} m={m} user={user}>
-                {m.card && <CardView card={m.card} asked={asked} phase={phase} current={current} doc={doc} reference={ref} baseline={baseline} setBaseline={setBaseline} submitBaseline={submitBaseline} contextText={contextText} setContextText={setContextText} submitContext={submitContext} openingSummary={openingSummary} setOpeningSummary={setOpeningSummary} submitOpeningSummary={submitOpeningSummary} pickedQ={pickedQ} setPickedQ={setPickedQ} applyScope={applyScope} decision={decision} sufficiency={sufficiency} decideCandidate={decideCandidate} finishReview={finishReview} rx={rx} setRx={setRx} draftRx={draftRx} approveRx={approveRx} rejectRx={rejectRx} goReport={goReport} endSession={endSession} busy={busy} selectSuggested={selectSuggested} inlineAnswer={inlineAnswer} setInlineAnswer={setInlineAnswer} submitInlineAnswer={submitInlineAnswer} suggestQuadrants={() => suggestQuadrants(doc)} />}
+                {m.card && <CardView card={m.card} asked={asked} phase={phase} current={current} doc={doc} reference={ref} baseline={baseline} setBaseline={setBaseline} submitBaseline={submitBaseline} contextText={contextText} setContextText={setContextText} submitContext={submitContext} pickedQ={pickedQ} setPickedQ={setPickedQ} applyScope={applyScope} decision={decision} sufficiency={sufficiency} decideCandidate={decideCandidate} finishReview={finishReview} rx={rx} setRx={setRx} draftRx={draftRx} approveRx={approveRx} rejectRx={rejectRx} goReport={goReport} endSession={endSession} busy={busy} selectSuggested={selectSuggested} inlineAnswer={inlineAnswer} setInlineAnswer={setInlineAnswer} submitInlineAnswer={submitInlineAnswer} suggestQuadrants={() => suggestQuadrants(doc)} />}
               </Message>
             ))}
             {busy && <p className="text-xs text-slate-400 pl-14">Nadika.ai · {busy}…</p>}
@@ -639,10 +657,10 @@ function Message({ m, user, children }) {
   );
 }
 
-function CardView({ card, asked, phase, current, doc, reference, baseline, setBaseline, submitBaseline, contextText, setContextText, submitContext, openingSummary, setOpeningSummary, submitOpeningSummary, pickedQ, setPickedQ, applyScope, decision, sufficiency, decideCandidate, finishReview, rx, setRx, draftRx, approveRx, rejectRx, goReport, endSession, busy, selectSuggested, inlineAnswer, setInlineAnswer, submitInlineAnswer, suggestQuadrants }) {
+function CardView({ card, asked, phase, current, doc, reference, baseline, setBaseline, submitBaseline, contextText, setContextText, submitContext, pickedQ, setPickedQ, applyScope, decision, sufficiency, decideCandidate, finishReview, rx, setRx, draftRx, approveRx, rejectRx, goReport, endSession, busy, selectSuggested, inlineAnswer, setInlineAnswer, submitInlineAnswer, suggestQuadrants }) {
   const box = 'rounded-2xl border border-black/5 bg-white p-4 shadow-sm';
-  // Suggested questions: the AI offers up to 3 candidate questions for this
-  // quadrant/deep-dive. The therapist swipes/selects one, asks it aloud, and
+  // A question is selected and answered before the next one is shown.
+  // The therapist asks it aloud and
   // records the patient's answer inline — then the same three options
   // (deep dive / new quadrant / end session) are always available.
   if (card.type === 'suggested') {
@@ -782,26 +800,23 @@ function CardView({ card, asked, phase, current, doc, reference, baseline, setBa
     );
   }
   if (card.type === 'opening') {
-    const questions = card.items || [];
+    const question = card.question;
+    const active = phase === 'opening' && current?.id === question?.id && !asked.has(question?.id);
     return (
       <div className={box}>
-        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Opening Questions</p>
-        <ol className="space-y-2 list-decimal pl-5 text-sm text-slate-700">
-          {questions.map((q, index) => (
-            <li key={q.id || index} className="leading-relaxed">{q.text}</li>
-          ))}
-        </ol>
-        <div className="mt-4 pt-3 border-t border-black/5">
-          <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Combined response / session summary</label>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Opening question {card.index + 1} of {card.total}</p>
+        <p className="text-sm leading-relaxed text-slate-800">{question?.text}</p>
+        {active ? <div className="mt-4 pt-3 border-t border-black/5">
+          <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Patient response</label>
           <textarea
-            rows={6}
-            value={openingSummary}
-            onChange={(e) => setOpeningSummary(e.target.value)}
-            placeholder="Discuss all four questions with the patient, then enter one combined summary of the patient’s responses…"
+            rows={2}
+            value={inlineAnswer}
+            onChange={(e) => setInlineAnswer(e.target.value)}
+            placeholder="Record the patient’s answer…"
             className="w-full px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm resize-none"
           />
-          <button onClick={submitOpeningSummary} disabled={!!busy || !openingSummary.trim()} className="mt-3 px-5 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40" style={{ background: TEAL }}>Submit / Analyze</button>
-        </div>
+          <button onClick={submitInlineAnswer} disabled={!!busy || !inlineAnswer.trim()} className="mt-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40" style={{ background: TEAL }}>Record answer</button>
+        </div> : asked.has(question?.id) && <p className="mt-3 text-xs font-semibold text-emerald-700">Response recorded in the conversation.</p>}
       </div>
     );
   }

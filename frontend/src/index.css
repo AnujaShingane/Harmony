@@ -1,4 +1,5 @@
 /* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,6 +17,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+.font-display { font-family: 'Manrope', sans-serif; }
 
 /* The page itself scrolls (browser scrollbar on the right). Dashboard
    layouts are h-screen and scroll their own content pane; every other page
@@ -35,7 +37,7 @@ body { overflow-y: auto; overflow-x: hidden; }
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #0d5239 #f3f4f6;
+  scrollbar-color: #e85d35 #f3f4f6;
 }
 
 /* Chrome, Edge, and Safari */
@@ -50,19 +52,19 @@ body { overflow-y: auto; overflow-x: hidden; }
 }
 
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #0d5239 0%, #083b29 100%);
+  background: linear-gradient(180deg, #e85d35 0%, #ce4828 100%);
   border-radius: 10px;
   border: 2px solid #f3f4f6;
   transition: all 0.3s ease;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #083b29 0%, #062c1e 100%);
+  background: linear-gradient(180deg, #ce4828 0%, #b63c21 100%);
   border: 2px solid #e5e7eb;
 }
 
 *::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, #0f766e 0%, #115e59 100%);
+  background: linear-gradient(180deg, #f28b65 0%, #e85d35 100%);
 }
 
 /* Horizontal scrollbar */
@@ -99,7 +101,7 @@ body { overflow-y: auto; overflow-x: hidden; }
 .bg-gradient-to-br::-webkit-scrollbar-thumb:hover,
 [class*="from-purple"]::-webkit-scrollbar-thumb:hover,
 [class*="from-teal"]::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(147, 51, 234, 0.9) 0%, rgba(126, 34, 206, 0.9) 100%);
+  background: linear-gradient(180deg, rgba(232, 93, 53, 0.95) 0%, rgba(206, 72, 40, 0.95) 100%);
   border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -113,7 +115,7 @@ body { overflow-y: auto; overflow-x: hidden; }
 }
 
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: #0d5239;
+  background: #e85d35;
   border-radius: 3px;
   border: none;
 }
@@ -231,31 +233,30 @@ html {
 }
 
 .modal-scroll::-webkit-scrollbar-thumb {
-  background: rgba(13, 82, 57, 0.5);
+  background: rgba(232, 93, 53, 0.5);
   border-radius: 4px;
 }
 
 .modal-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(13, 82, 57, 0.8);
+  background: rgba(232, 93, 53, 0.8);
 }
 
 /* ============================================
    ANAHAT — PRIMARY ACTION STYLE
    (kept the .btn-sunset / .text-sunset / etc. class names so every existing
-   component that references them repaints automatically — only the color
-   values below changed to the brand's solid #0d5239 green)
+  component that references them repaints automatically.)
    ============================================ */
 
 .btn-sunset {
-  background: #0d5239;
+  background: #e85d35;
   color: #ffffff;
-  box-shadow: 0 8px 24px -8px rgba(13, 82, 57, 0.55);
+  box-shadow: 0 8px 24px -8px rgba(232, 93, 53, 0.28);
   transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
 }
 
 .btn-sunset:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 12px 30px -6px rgba(13, 82, 57, 0.65);
+  box-shadow: 0 12px 30px -6px rgba(232, 93, 53, 0.34);
   filter: brightness(1.1);
 }
 
@@ -270,27 +271,27 @@ html {
 }
 
 .btn-sunset-outline {
-  background: rgba(13, 82, 57, 0.08);
-  border: 1px solid rgba(13, 82, 57, 0.4);
-  color: #0d5239;
+  background: rgba(232, 93, 53, 0.08);
+  border: 1px solid rgba(232, 93, 53, 0.4);
+  color: #cf4c2b;
   transition: all 0.3s ease;
 }
 
 .btn-sunset-outline:hover:not(:disabled) {
-  background: rgba(13, 82, 57, 0.16);
-  border-color: rgba(13, 82, 57, 0.7);
+  background: rgba(232, 93, 53, 0.16);
+  border-color: rgba(232, 93, 53, 0.7);
 }
 
 .text-sunset {
-  color: #0d5239;
+  color: #cf4c2b;
 }
 
 .bg-sunset-soft {
-  background: rgba(13, 82, 57, 0.1);
+  background: rgba(232, 93, 53, 0.1);
 }
 
 .border-sunset {
-  border-color: rgba(13, 82, 57, 0.35);
+  border-color: rgba(232, 93, 53, 0.35);
 }
 
 /* ============================================

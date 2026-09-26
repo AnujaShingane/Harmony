@@ -23,7 +23,7 @@ router.post('/patient', requireRole('patient'),
 router.post('/therapist', requireRole('therapist'), upload.single('avatar'),
   body('age').isInt({ min: 18, max: 100 }), body('gender').notEmpty(), body('experienceYears').isInt({ min: 0 }),
   body('experienceDetails').trim().notEmpty(), body('profession').notEmpty(), body('fee').isFloat({ min: 0 }),
-  body('address').trim().notEmpty(),
+  body('address').trim().notEmpty(), body('avatar').custom((_value, { req }) => Boolean(req.file) && ['image/jpeg', 'image/png'].includes(req.file.mimetype) && req.file.size <= 5 * 1024 * 1024).withMessage('Upload a JPG or PNG profile photo smaller than 5 MB.'),
   validate, asyncHandler(profile.completeTherapistProfile));
 
 export default router;

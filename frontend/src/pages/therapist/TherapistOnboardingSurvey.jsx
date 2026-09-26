@@ -61,6 +61,10 @@ export default function TherapistOnboardingSurvey() {
   if (!form.fee) missing.push('session fee');
 
   const submit = async () => {
+    if (!avatarFile) {
+      setError('Upload a profile photo before submitting your profile.');
+      return;
+    }
     if (missing.length) {
       setError(`Please fill in: ${missing.join(', ')}.`);
       return;
@@ -101,7 +105,7 @@ export default function TherapistOnboardingSurvey() {
         />
 
         <Card className="space-y-6">
-          {/* Profile photo — optional */}
+          {/* Profile photo — required */}
           <div className="flex items-center gap-5">
             <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center border-4 border-white shadow-lg shrink-0" style={{ background: CREAM, color: TEAL }}>
               {avatarPreview ? (
@@ -111,12 +115,12 @@ export default function TherapistOnboardingSurvey() {
               )}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">Profile photo <span className="font-normal text-slate-400">(optional)</span></p>
-              <p className="text-xs text-slate-500 mb-2">Patients see this on your booking card. JPG or PNG, max 5MB.</p>
+              <p className="text-sm font-bold text-slate-800">Profile photo <span className="font-bold text-red-600">*</span></p>
+              <p className="text-xs text-slate-500 mb-2">Required for your booking profile. JPG or PNG, max 5MB.</p>
               <button type="button" onClick={() => avatarInputRef.current?.click()} className="px-4 py-2 rounded-xl border border-black/10 text-xs font-bold text-slate-700 hover:bg-black/[0.02]">
                 {avatarFile ? 'Change photo' : 'Upload photo'}
               </button>
-              <input ref={avatarInputRef} type="file" accept=".jpg,.jpeg,.png" onChange={onAvatar} className="hidden" />
+              <input ref={avatarInputRef} type="file" accept=".jpg,.jpeg,.png" onChange={onAvatar} className="hidden" aria-required="true" />
             </div>
           </div>
 

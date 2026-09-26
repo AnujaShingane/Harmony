@@ -41,6 +41,7 @@ export default function TherapistDashboardLayout({
   active,
   onNavigate,
   user,
+  userId,
   level,
   avatarUrl,
   onLogout,
@@ -62,9 +63,21 @@ export default function TherapistDashboardLayout({
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const menuRef = useRef(null);
   const notifRef = useRef(null);
+  const guideKey = userId ? `anahat_therapist_guide_${userId}` : null;
+
+  useEffect(() => {
+    if (active === 'overview' && guideKey && !localStorage.getItem(guideKey)) setGuideOpen(true);
+  }, [active, guideKey]);
+
+  const closeGuide = () => {
+    if (guideKey) localStorage.setItem(guideKey, 'done');
+    setGuideOpen(false);
+  };
 
   useEffect(() => {
     localStorage.setItem('therapistSidebarCollapsed', collapsed ? '1' : '0');
@@ -304,6 +317,26 @@ export default function TherapistDashboardLayout({
               >
                 Log Out
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {guideOpen && active === 'overview' && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/35 px-4" role="dialog" aria-modal="true" aria-labelledby="therapist-guide-title">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: SAGE }}>Therapist quick start · {guideStep + 1} of 3</p>
+            <h2 id="therapist-guide-title" className="mt-2 text-xl font-bold text-slate-900">{['Review appointments', 'Open a patient session', 'Record one answer at a time'][guideStep]}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{[
+              'Use Appointments to review booked sessions and confirm the schedule you have set in your profile.',
+              'Open the appointment or patient record to start the session and launch Nadika.ai.',
+              'Read the current question aloud, record the patient response, and Nadika advances automatically. The answered count tracks progress; End Session is available whenever you need to stop.',
+            ][guideStep]}</p>
+            <div className="mt-6 flex items-center justify-between">
+              <button type="button" onClick={closeGuide} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Skip guide</button>
+              <div className="flex gap-2">
+                {guideStep > 0 && <button type="button" onClick={() => setGuideStep((step) => step - 1)} className="rounded-md border border-black/10 px-4 py-2 text-xs font-semibold text-slate-700">Back</button>}
+                <button type="button" onClick={() => guideStep === 2 ? closeGuide() : setGuideStep((step) => step + 1)} className="rounded-md px-4 py-2 text-xs font-semibold text-white" style={{ background: SAGE }}>{guideStep === 2 ? 'Done' : 'Next'}</button>
+              </div>
             </div>
           </div>
         </div>

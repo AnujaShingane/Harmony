@@ -388,6 +388,7 @@ export default function TherapistPortal() {
       active={tab}
       onNavigate={goTab}
       user={{ name: therapistName }}
+      userId={user.id}
       level={level}
       avatarUrl={avatarUrl}
       onLogout={logout}
