@@ -1,6 +1,6 @@
 import PremiumCard from './PremiumCard';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 /**
  * Blocking-but-dismissible pop-up promoting the Premium plan. Used two ways:

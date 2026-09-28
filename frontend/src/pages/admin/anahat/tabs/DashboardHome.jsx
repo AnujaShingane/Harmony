@@ -17,11 +17,11 @@ export default function DashboardHome({
   return (
     <div className="pt-8 space-y-8">
       <div
-        className="rounded-[2rem] p-8"
+        className="rounded-2xl px-6 py-4"
         style={{ background: `linear-gradient(120deg, ${SAGE_SOFT} 0%, #FBF3E7 100%)` }}
       >
         <p className="text-slate-600 text-sm">Welcome back,</p>
-        <h1 className="font-serif font-bold text-3xl text-slate-900">Anahat Admin Console</h1>
+        <h1 className="font-serif font-bold text-2xl text-slate-900">Anahat Admin Console</h1>
         <p className="text-slate-500 text-sm mt-1">Therapist approvals, patients, and bookings across the platform.</p>
       </div>
 

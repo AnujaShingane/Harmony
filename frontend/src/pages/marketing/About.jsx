@@ -1,7 +1,8 @@
 import PublicNav from '../../components/public/PublicNav';
+import { Link } from 'react-router-dom';
 import { ANAHAT_SERVICES } from '../../constants/services';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 export default function About() {
   return (
@@ -12,7 +13,7 @@ export default function About() {
         <section className="max-w-5xl mx-auto px-6">
           <div className="bg-white rounded-[2rem] shadow-sm border border-black/5 p-8 md:p-14 grid grid-cols-1 md:grid-cols-[1fr_1.4fr] gap-10 items-center">
             <div>
-              <img src="/assets/anahat-logo.png" alt="Anahat Transformations" className="w-28 h-28 object-contain mb-6" />
+              <Link to="/" aria-label="Anahat Transformations home"><img src="/assets/anahat-logo.png" alt="Anahat Transformations" className="w-28 h-28 object-contain mb-6" /></Link>
               <h1 className="font-serif text-4xl md:text-5xl font-semibold leading-tight" style={{ color: TEAL }}>About us</h1>
               <p className="text-slate-500 mt-3 text-sm">Tune. Heal. Transform.</p>
             </div>

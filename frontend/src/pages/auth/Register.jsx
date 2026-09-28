@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiSignup, BACKEND_URL } from '../../services/api';
 import AuthShell, { RoleTabs, PasswordInput, GoogleButton } from '../../components/auth/AuthShell';
 
-const INPUT = 'w-full px-5 py-3.5 bg-black/[0.03] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-teal-500/50 focus:bg-white outline-none transition-all';
+const INPUT = 'w-full px-5 py-3.5 bg-black/[0.03] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-[#0F8594]/50 focus:bg-white outline-none transition-all';
 const STRONG_PASSWORD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 // After sign-up: patients fill the demographic form, then the consent form,
@@ -101,7 +101,7 @@ export default function Register() {
       <GoogleButton onClick={() => { window.location.href = `${BACKEND_URL}/api/auth/google?role=${encodeURIComponent(role)}`; }} disabled={loading} label="Sign up with Google" />
 
       <p className="mt-7 text-center text-sm text-slate-500">
-        Already have an account? <Link to="/login" className="font-bold text-[#0d5239] underline underline-offset-2">Sign in</Link>
+        Already have an account? <Link to="/login" className="font-bold text-[#0F8594] underline underline-offset-2">Sign in</Link>
       </p>
     </AuthShell>
   );

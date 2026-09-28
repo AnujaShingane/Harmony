@@ -303,7 +303,7 @@ export default function ReportsTab({ patients, reports, ragaCatalog, therapistNa
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reports.map((r) => (
-            <div key={r.id} className="bg-white rounded-3xl border border-black/[0.06] shadow-sm shadow-black/[0.03] hover:shadow-md transition-shadow duration-200 p-5 flex flex-col">
+            <div key={r.id} className="flex h-[360px] flex-col overflow-hidden border-b border-black/10 bg-white p-5">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: SAGE }}>
@@ -329,10 +329,10 @@ export default function ReportsTab({ patients, reports, ragaCatalog, therapistNa
                 <p className="text-[11px] font-bold text-slate-400 mb-1">{r.disorders}</p>
               )}
               {r.sessionSummary && (
-                <p className="text-sm text-slate-700 mb-2 leading-relaxed">{r.sessionSummary}</p>
+                <p className="mb-2 text-sm leading-relaxed text-slate-700" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.sessionSummary}</p>
               )}
               {r.therapistNotes && (
-                <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed mb-2">{r.therapistNotes}</p>
+                <p className="mb-2 whitespace-pre-line text-xs leading-relaxed text-slate-500" style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.therapistNotes}</p>
               )}
 
               <div className="mt-auto pt-2 flex flex-wrap gap-2">

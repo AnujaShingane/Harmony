@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   getTherapistDetail,
@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import TherapistDashboardLayout from '../../components/layout/TherapistDashboardLayout';
 import { timeAgo } from './scheduleUtils';
+import { isAppointmentPast } from '../../utils/derived';
 
 import DashboardHome from './tabs/DashboardHome';
 import AvailabilityCard from './tabs/AvailabilityCard';
@@ -76,8 +77,11 @@ function adaptAppointment(a) {
 
 export default function TherapistPortal() {
   const { user, logout, login } = useAuth();
+  const [now, setNow] = useState(new Date());
   const navigate = useNavigate();
-  const [tab, setTab] = useState('overview');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'overview');
+  const [messagePatientId, setMessagePatientId] = useState(() => searchParams.get('patient'));
   const [search, setSearch] = useState('');
   const [experienceYears, setExperienceYears] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -97,6 +101,11 @@ export default function TherapistPortal() {
   const [survey, setSurvey] = useState(null);
   const [patientFirstSeen, setPatientFirstSeen] = useState({}); // patientId -> earliest booking createdAt
   const [patientAdminNumbers, setPatientAdminNumbers] = useState({}); // patientId -> static ANH-YYYY-NNNNNN id, for Prescriptions
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Every patient's static "Admin Number" (ANH-YYYY-NNNNNN) — fetched once
   // per patient and cached, since it never changes for the life of the
@@ -234,9 +243,9 @@ export default function TherapistPortal() {
   ), [patients, patientExtras, user.id]);
 
   const upcomingSessions = myAppointments
-    .filter((a) => a.status === 'confirmed')
+    .filter((a) => a.status === 'confirmed' && !isAppointmentPast(a, now))
     .map((a) => ({ id: a.id, patientId: a.patientId, patientName: a.patientName, slot: a.slot, date: new Date(`${a.date}T${a.startTime}:00+05:30`) }))
-    .filter((a) => a.date.getTime() > Date.now() - 60 * 60000)
+    .filter((a) => a.date.getTime() > now.getTime())
     .sort((a, b) => a.date - b.date)
     .slice(0, 4);
 
@@ -357,9 +366,14 @@ export default function TherapistPortal() {
     if (locked && key !== 'overview') return;
     if (key === 'patient') { navigate(`/therapist/patient/${extra}`); return; }
     if (key === 'messages') {
+      setMessagePatientId(extra || null);
       const now = new Date();
       setLastSeenMessages(now);
       localStorage.setItem(`therapistLastSeenMsgs_${user.id}`, now.toISOString());
+      navigate('/therapist?tab=messages', { replace: true });
+    } else {
+      setMessagePatientId(null);
+      if (searchParams.has('tab')) navigate('/therapist', { replace: true });
     }
     setTab(key);
     setSearch('');
@@ -401,8 +415,6 @@ export default function TherapistPortal() {
       onOpenNotifications={() => goTab('notifications')}
       searchPlaceholder={SEARCH_PLACEHOLDERS[tab] || 'Search…'}
       locked={locked}
-      showBack={tab !== 'overview'}
-      onBack={() => goTab('overview')}
     >
       {locked && (
         <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5 flex items-start gap-4">
@@ -508,7 +520,7 @@ export default function TherapistPortal() {
       )}
 
       {tab === 'messages' && (
-        <MessagesTab therapist={{ id: user.id, name: therapistName }} patients={patients} />
+        <MessagesTab therapist={{ id: user.id, name: therapistName }} patients={patients} selectedPatientId={messagePatientId} />
       )}
 
       {tab === 'reports' && (

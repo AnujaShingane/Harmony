@@ -62,9 +62,9 @@ export default function ReportPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#FDF6EF]">
-                <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-teal-500/20">
+                <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-[#0F8594]/20">
                     <div className="flex items-center gap-4">
-                        <svg className="animate-spin h-8 w-8 text-teal-500" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-8 w-8 text-[#0F8594]" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -88,7 +88,7 @@ export default function ReportPage() {
                     </div>
                     <button
                         onClick={() => navigate('/dashboard')}
-                        className="w-full px-6 py-3 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
+                        className="w-full px-6 py-3 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
                     >
                         ← Back to Dashboard
                     </button>
@@ -120,7 +120,7 @@ export default function ReportPage() {
                         ← Back to Dashboard
                     </button>
 
-                    <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-teal-400/10 mb-6">
+                    <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-[#0F8594]/75 mb-6">
                         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                             <div>
                                 <h1 className="text-3xl font-serif font-bold text-slate-900">Your Therapy Report</h1>
@@ -129,7 +129,7 @@ export default function ReportPage() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={downloadPDF}
-                                    className="px-6 py-3 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 transition-all font-semibold"
+                                    className="px-6 py-3 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 transition-all font-semibold"
                                 >
                                     Download PDF
                                 </button>
@@ -165,14 +165,14 @@ export default function ReportPage() {
                                     </div>
                                 )}
                                 {report.report.userPrescription && (
-                                    <div className="border-l-4 border-teal-400 bg-teal-400/10 rounded-r-xl p-6">
+                                    <div className="border-l-4 border-[#0F8594]/75 bg-[#0F8594]/75 rounded-r-xl p-6">
                                         <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
                                             <h2 className="text-xl font-serif font-bold text-slate-900">
                                                 Your Personalized Prescription
                                             </h2>
                                             <button
                                                 onClick={() => downloadTextReport('user')}
-                                                className="px-4 py-2 bg-teal-400/20 border border-teal-400/30 text-teal-200 rounded-lg hover:bg-teal-400/30 text-sm font-semibold transition-all"
+                                                className="px-4 py-2 bg-[#0F8594]/75 border border-[#0F8594]/75 text-[#0F8594]/25 rounded-lg hover:bg-[#0F8594]/75 text-sm font-semibold transition-all"
                                             >
                                                 Download
                                             </button>
@@ -184,7 +184,7 @@ export default function ReportPage() {
                                 )}
 
                                 {report.report.chakras && report.report.chakras.length > 0 && (
-                                    <div className="border-l-4 border-teal-500 bg-teal-500/10 rounded-r-xl p-6">
+                                    <div className="border-l-4 border-[#0F8594] bg-[#0F8594]/10 rounded-r-xl p-6">
                                         <h2 className="text-xl font-serif font-bold text-slate-900 mb-4">
                                             Chakra Analysis Summary
                                         </h2>
@@ -212,7 +212,7 @@ export default function ReportPage() {
                                 )}
 
                                 {report.report.raga_recommendations && report.report.raga_recommendations.success && (
-                                    <div className="border-l-4 border-teal-400 bg-teal-400/10 rounded-r-xl p-6">
+                                    <div className="border-l-4 border-[#0F8594]/75 bg-[#0F8594]/75 rounded-r-xl p-6">
                                         <h2 className="text-xl font-serif font-bold text-slate-900 mb-4">
                                             Music Therapy Recommendations
                                         </h2>
@@ -241,7 +241,7 @@ export default function ReportPage() {
                                                                                 href={link}
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
-                                                                                className="text-xs px-2 py-1 bg-teal-400/20 text-teal-200 rounded hover:bg-teal-400/30 transition-all"
+                                                                                className="text-xs px-2 py-1 bg-[#0F8594]/75 text-[#0F8594]/25 rounded hover:bg-[#0F8594]/75 transition-all"
                                                                             >
                                                                                 {type}
                                                                             </a>

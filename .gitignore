@@ -16,3 +16,23 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local Python environment
+ANAHAT_AI_ENGINE/venv/
+
+# Local archives
+*.zip
+
+
+.env
+*.env
+
+
+# Frontend generated files
+frontend/node_modules/
+frontend/dist/
+frontend-updated/
+
+# Root npm files
+/package-lock.json
+

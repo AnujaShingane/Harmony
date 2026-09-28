@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatientSession } from '../../hooks/usePatientSession';
 import { getPatientOnboarding } from '../../services/api';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 export default function PendingApproval() {

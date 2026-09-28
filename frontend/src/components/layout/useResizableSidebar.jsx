@@ -43,7 +43,7 @@ export function ResizeHandle({ onMouseDown }) {
       onMouseDown={onMouseDown}
       className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize group/handle"
     >
-      <div className="h-full w-px mx-auto bg-transparent group-hover/handle:bg-[#0d5239]/40 transition-colors" />
+      <div className="h-full w-px mx-auto bg-transparent group-hover/handle:bg-[#0F8594]/40 transition-colors" />
     </div>
   );
 }

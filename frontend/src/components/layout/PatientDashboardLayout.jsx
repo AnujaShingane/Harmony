@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { getPatientNotifications, markPatientNotificationRead, getPatientOnboarding, getProfile, getTrackCatalog, getJourney } from '../../services/api';
+import { getPatientNotifications, markPatientNotificationRead, getPatientOnboarding, getProfile, getTrackCatalog } from '../../services/api';
 import anahatLogo from '../../assets/anahat-logo.png';
 import { initialsOf } from '../../utils/initials';
 import DashboardFooter from './DashboardFooter';
@@ -18,9 +18,11 @@ import { consentKey } from '../../pages/patient/Consent';
 // layout — deep teal is reserved for accents/active states, not the whole rail.
 // ---------------------------------------------------------------------------
 
-const TEAL = '#0d5239';
-const TEAL_DARK = '#083b29';
-const TEAL_LIGHT = '#15794f';
+// Single, consistent cyan accent used app-wide for active states, links,
+// icons and highlights (see src/index.css --accent-cyan-*).
+const TEAL = '#0F8594';
+const TEAL_DARK = '#0A6976';
+const TEAL_LIGHT = '#0F8594';
 const LIME = '#E3F0A0';
 const SIDEBAR_BG = '#FFFFFF';
 
@@ -28,7 +30,6 @@ export const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: HomeIcon, keywords: 'home overview' },
   { key: 'book-session', label: 'Book Session', to: '/dashboard/book-session', icon: CalendarPlusIcon, keywords: 'appointment therapist booking' },
   { key: 'appointments', label: 'Appointments', to: '/dashboard/appointments', icon: CalendarIcon, keywords: 'sessions upcoming schedule' },
-  { key: 'relaxation', label: 'Relaxation', to: '/dashboard/relaxation', icon: LeafIcon, keywords: 'relax raag calm anger stress music' },
   { key: 'tracking', label: 'Tracking', to: '/dashboard/tracking', icon: ProgressIcon, keywords: 'mood progress' },
   { key: 'messages', label: 'Messages', to: '/dashboard/messages', icon: MessageIcon, keywords: 'chat therapist' },
   { key: 'notifications', label: 'Notifications', to: '/dashboard/notifications', icon: BellIcon, keywords: 'alerts' },
@@ -145,18 +146,8 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
   useEffect(() => {
     if (!user?.id) return;
     if (location.pathname.startsWith('/dashboard/relaxation')) return;
-    if (location.pathname === '/choose-journey') return;
     let cancelled = false;
-    // A brand-new patient picks Relaxation or Professional Consultation
-    // before anything else (see ChooseJourney.jsx). Once a journey is on
-    // file, this is skipped for good — it's a one-time choice.
-    getJourney(user.id)
-      .then((journey) => {
-        if (cancelled || journey) return Promise.resolve();
-        navigate('/choose-journey', { replace: true });
-        return Promise.reject(new Error('__redirecting__'));
-      })
-      .then(() => getPatientOnboarding(user.id))
+    getPatientOnboarding(user.id)
       .then((result) => {
         if (!result) return;
         const { status } = result;
@@ -174,10 +165,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
           }).catch(() => {});
         }
       })
-      .catch((err) => {
-        if (err?.message === '__redirecting__') return;
-        console.error('Failed to load onboarding status:', err);
-      });
+      .catch((err) => console.error('Failed to load onboarding status:', err));
     return () => { cancelled = true; };
   }, [user?.id, navigate, location.pathname]);
 
@@ -200,7 +188,6 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
     setSearchOpen(false);
     navigate(item.to);
   };
-  const isHome = location.pathname === '/dashboard';
   const unreadCount = notificationItems.filter((notification) => !notification.read).length;
 
   const displayName = user?.name || user?.full_name || 'Patient';
@@ -217,7 +204,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
         style={{ background: SIDEBAR_BG, width: collapsed ? 76 : sidebarWidth }}
       >
         {!collapsed && <ResizeHandle onMouseDown={onResizeStart} />}
-        <div className={`flex items-center gap-2.5 px-5 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
+        <Link to="/" aria-label="Anahat home" className={`flex items-center gap-2.5 px-5 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
           <img src={anahatLogo} alt="Anahat" className="w-9 h-9 object-contain shrink-0" />
           {!collapsed && (
             <div className="min-w-0 leading-tight">
@@ -225,7 +212,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
               <span className="block text-[10px] text-slate-400 font-semibold tracking-wide truncate">Transformations</span>
             </div>
           )}
-        </div>
+        </Link>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {SIDEBAR_ITEMS.map((item) => {
@@ -291,16 +278,15 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
       <div className="flex-1 min-w-0 flex flex-col h-full">
         {/* Top bar */}
         <header className="h-20 shrink-0 flex items-center gap-4 px-6 md:px-8 bg-white border-b border-black/5">
-          {!isHome && (
-            <button
-              type="button"
-              onClick={() => (backTo ? navigate(backTo) : window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
-              aria-label="Go back"
-              className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F6F4EC] hover:text-slate-900 transition-all shrink-0"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => (backTo ? navigate(backTo) : window.history.length > 1 ? navigate(-1) : navigate('/'))}
+            aria-label="Go back"
+            title="Go back"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F6F4EC] hover:text-slate-900 transition-all shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
+          </button>
           <div className="flex-1 max-w-md relative" ref={searchRef}>
             <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
@@ -452,8 +438,10 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
         </header>
 
         {/* Content */}
-        <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="max-w-[1400px] mx-auto px-8 py-8 min-h-full flex flex-col"><div className="flex-1">{children}</div><DashboardFooter /></div>
+        <main className={`flex-1 min-h-0 ${active === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${active === 'messages' ? 'h-full w-full px-0 py-0' : 'w-full max-w-none px-4 sm:px-6 lg:px-8 py-4 sm:py-6'} min-h-full flex flex-col`}>
+            <div className={`flex-1 portal-page-content ${active === 'messages' ? 'h-full min-h-0 flex flex-col' : ''}`}>{children}</div>
+          </div>
 
         {/* Toasts */}
         <div className="fixed bottom-6 right-6 z-[120] space-y-3 w-[340px] max-w-[90vw]">
@@ -472,6 +460,7 @@ export default function PatientDashboardLayout({ active, user, onLogout, childre
           ))}
         </div>
         </main>
+        <DashboardFooter />
       </div>
 
       {/* Logout confirmation dialog */}

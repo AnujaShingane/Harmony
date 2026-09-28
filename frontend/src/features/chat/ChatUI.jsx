@@ -1,11 +1,20 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "./useChat";
+import { Link } from 'react-router-dom';
+import { addDocument } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export const UI = ({ hidden, ...props }) => {
   const input = useRef();
   const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
   const {
     chat,
     loading,
@@ -85,6 +94,21 @@ export const UI = ({ hidden, ...props }) => {
     if (!loading && !message && text.trim() && !isSpeaking) {
       chat(text);
       input.current.value = "";
+    }
+  };
+
+  const uploadDocument = async (file) => {
+    if (!file || !user?.id) return;
+    setUploading(true);
+    setUploadStatus('');
+    try {
+      await addDocument(user.id, { file, name: file.name, size: file.size, category: 'Previous Report' });
+      setUploadStatus(`${file.name} uploaded to your documents.`);
+    } catch (error) {
+      setUploadStatus(error.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      window.setTimeout(() => setUploadStatus(''), 5000);
     }
   };
 
@@ -200,7 +224,7 @@ export const UI = ({ hidden, ...props }) => {
 
       {/* Background Glow Effect */}
       <div
-        className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-lime-300/10 via-teal-600/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
+        className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-lime-300/10 via-[#0F8594]/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
         style={{ transform: `translate(${mousePos.x - 300}px, ${mousePos.y - 300}px)`, background: 'radial-gradient(circle at center, rgba(251, 191, 36, 0.1), rgba(168, 85, 247, 0.05), transparent)' }}
       />
 
@@ -216,10 +240,10 @@ export const UI = ({ hidden, ...props }) => {
           ===================================================== */}
       {!sessionInitialized && !isResuming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in pointer-events-none">
-          <div className="bg-white border border-black/10 rounded-[2rem] p-8 max-w-md w-full mx-4 shadow-2xl shadow-teal-500/20 text-center">
+          <div className="bg-white border border-black/10 rounded-[2rem] p-8 max-w-md w-full mx-4 shadow-2xl shadow-[#0F8594]/20 text-center">
             <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <div className="absolute inset-0 bg-teal-500 blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
-              <svg className="w-16 h-16 text-teal-800 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 bg-[#0F8594] blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
+              <svg className="w-16 h-16 text-[#0E5860] relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
               </svg>
             </div>
@@ -276,21 +300,21 @@ export const UI = ({ hidden, ...props }) => {
       {/* Resuming Session Indicator */}
       {isResuming && !resumeError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-white border border-black/10 rounded-[2rem] p-8 max-w-md w-full mx-4 shadow-2xl shadow-teal-500/20 text-center">
+          <div className="bg-white border border-black/10 rounded-[2rem] p-8 max-w-md w-full mx-4 shadow-2xl shadow-[#0F8594]/20 text-center">
             <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <div className="absolute inset-0 bg-teal-500 blur-xl opacity-60 rounded-full animate-pulse"></div>
-              <svg className="w-16 h-16 text-teal-800 relative z-10 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 bg-[#0F8594] blur-xl opacity-60 rounded-full animate-pulse"></div>
+              <svg className="w-16 h-16 text-[#0E5860] relative z-10 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </div>
-            <h2 className="text-2xl font-serif font-bold text-teal-600 mb-2">
+            <h2 className="text-2xl font-serif font-bold text-[#0F8594] mb-2">
               Resuming Your Session
             </h2>
             <p className="text-slate-600 mb-4">
               Loading your previous progress and conversation history...
             </p>
             <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
-              <div className="h-full bg-[#0d5239] animate-pulse"></div>
+              <div className="h-full bg-[#0F8594] animate-pulse"></div>
             </div>
             <p className="text-xs text-slate-500 mt-4">
               This may take a few seconds...
@@ -303,23 +327,21 @@ export const UI = ({ hidden, ...props }) => {
       <div className="fixed top-0 left-0 right-0 bottom-0 z-10 flex justify-between p-4 flex-col pointer-events-none overflow-hidden">
         {/* Header with Progress */}
         <div className="flex justify-between items-start">
-          <div className="self-start backdrop-blur-xl bg-white/80 border border-black/10 p-4 rounded-2xl shadow-lg shadow-teal-500/10 pointer-events-auto">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="relative w-8 h-8 flex items-center justify-center">
-                <img src="/assets/anahat-logo.png" alt="Anahat" className="w-8 h-8 object-contain relative z-10" />
+          <div className="self-start backdrop-blur-xl bg-white/80 border border-black/10 p-4 rounded-2xl shadow-lg shadow-[#0F8594]/10 pointer-events-auto">
+            <Link to="/" aria-label="Anahat Transformations home" className="mb-2 flex items-center gap-3">
+              <div className="relative flex h-8 w-8 items-center justify-center">
+                <img src="/assets/anahat-logo.png" alt="Anahat" className="relative z-10 h-8 w-8 object-contain" />
               </div>
               <div>
-                <h1 className="font-serif font-bold text-lg text-slate-900">
-                  Anahat Transformations
-                </h1>
+                <h1 className="font-serif text-lg font-bold text-slate-900">Anahat Transformations</h1>
                 <p className="text-xs text-slate-600">Holistic Wellness Assessment</p>
               </div>
-            </div>
+            </Link>
 
             {sessionInitialized && (
               <div className="mt-3 pt-3 border-t border-black/10">
-                <p className="text-xs font-semibold text-teal-600 flex items-center">
-                  <span className="inline-block w-2 h-2 bg-teal-500 rounded-full mr-2 animate-pulse"></span>
+                <p className="text-xs font-semibold text-[#0F8594] flex items-center">
+                  <span className="inline-block w-2 h-2 bg-[#0F8594] rounded-full mr-2 animate-pulse"></span>
                   {currentQuadrant || "In Progress"}
                 </p>
 
@@ -351,10 +373,10 @@ export const UI = ({ hidden, ...props }) => {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowConversationText(!showConversationText)}
-                className="pointer-events-auto backdrop-blur-xl bg-white/80 border border-black/10 p-3 rounded-2xl shadow-lg hover:border-teal-600/30 transition-all"
+                className="pointer-events-auto backdrop-blur-xl bg-white/80 border border-black/10 p-3 rounded-2xl shadow-lg hover:border-[#0F8594]/30 transition-all"
                 title={showConversationText ? "Hide Conversation Text" : "Show Conversation Text"}
               >
-                <svg className="w-6 h-6 text-teal-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-6 h-6 text-[#0A6976]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
               </button>
@@ -364,8 +386,8 @@ export const UI = ({ hidden, ...props }) => {
 
         {/* Live Conversation Display Panel */}
         {showConversationText && sessionInitialized && (
-          <div className="absolute top-20 right-4 w-96 max-h-[60vh] bg-white/90 backdrop-blur-xl border border-black/10 rounded-2xl shadow-2xl shadow-teal-600/20 overflow-hidden pointer-events-auto">
-            <div className="bg-gradient-to-r from-teal-500/20 to-teal-600/20 border-b border-black/10 p-3">
+          <div className="absolute top-20 right-4 w-96 max-h-[60vh] bg-white/90 backdrop-blur-xl border border-black/10 rounded-2xl shadow-2xl shadow-[#0F8594]/20 overflow-hidden pointer-events-auto">
+            <div className="bg-gradient-to-r from-[#0F8594]/20 to-[#0F8594]/20 border-b border-black/10 p-3">
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -393,16 +415,16 @@ export const UI = ({ hidden, ...props }) => {
                     key={idx}
                     className={`p-3 rounded-lg ${
                       entry.type === 'user'
-                        ? 'bg-teal-500/10 ml-4 border-l-4 border-teal-500'
+                        ? 'bg-[#0F8594]/10 ml-4 border-l-4 border-[#0F8594]'
                         : isCurrentlySpeaking
-                        ? 'bg-teal-600/20 mr-4 border-l-4 border-teal-600 animate-pulse'
-                        : 'bg-teal-600/10 mr-4 border-l-4 border-teal-600'
+                        ? 'bg-[#0F8594]/20 mr-4 border-l-4 border-[#0F8594] animate-pulse'
+                        : 'bg-[#0F8594]/10 mr-4 border-l-4 border-[#0F8594]'
                     }`}
                   >
                     <p className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-2">
                       <span>{entry.type === 'user' ? '👤 You' : '🧘 Therapist'}</span>
                       {isCurrentlySpeaking && (
-                        <span className="text-xs bg-teal-600 text-white px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-[#0F8594] text-white px-2 py-0.5 rounded-full">
                           Speaking...
                         </span>
                       )}
@@ -441,7 +463,7 @@ export const UI = ({ hidden, ...props }) => {
                 <button
                   onClick={() => handleNavigation('back')}
                   disabled={loading || isSpeaking}
-                  className="bg-white/80 backdrop-blur-xl border border-black/10 hover:border-teal-500/30 text-teal-600 px-3 py-2 rounded-xl shadow-lg transition-all flex items-center gap-2 font-semibold disabled:opacity-50"
+                  className="bg-white/80 backdrop-blur-xl border border-black/10 hover:border-[#0F8594]/30 text-[#0F8594] px-3 py-2 rounded-xl shadow-lg transition-all flex items-center gap-2 font-semibold disabled:opacity-50"
                   title="Go Back"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -455,7 +477,7 @@ export const UI = ({ hidden, ...props }) => {
                 <button
                   onClick={() => handleNavigation('repeat')}
                   disabled={loading || isSpeaking}
-                  className="bg-white/80 backdrop-blur-xl border border-black/10 hover:border-teal-600/30 text-teal-700 px-4 py-2 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 font-semibold disabled:opacity-50"
+                  className="bg-white/80 backdrop-blur-xl border border-black/10 hover:border-[#0F8594]/30 text-[#0A6976] px-4 py-2 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 font-semibold disabled:opacity-50"
                   title="Repeat Question"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -486,7 +508,7 @@ export const UI = ({ hidden, ...props }) => {
         <div className="w-full flex flex-col items-end justify-center gap-4">
           <button
             onClick={() => setCameraZoomed(!cameraZoomed)}
-            className="pointer-events-auto bg-[#0d5239] hover:bg-[#0a4530] hover:shadow-lg hover:shadow-black/20 text-white p-4 rounded-xl shadow-lg transition-all transform hover:scale-105"
+            className="pointer-events-auto bg-[#0F8594] hover:bg-[#0a4530] hover:shadow-lg hover:shadow-black/20 text-white p-4 rounded-xl shadow-lg transition-all transform hover:scale-105"
             title={cameraZoomed ? "Zoom Out" : "Zoom In"}
           >
             {cameraZoomed ? (
@@ -503,8 +525,26 @@ export const UI = ({ hidden, ...props }) => {
 
         {/* Chat Input */}
         <div className="flex items-center gap-2 pointer-events-auto max-w-screen-sm w-full mx-auto">
+          <button
+            onClick={sendMessage}
+            disabled={loading || message || !sessionInitialized || sessionComplete || isSpeaking}
+            aria-label="Send message"
+            title="Send message"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#0F8594] text-white disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <SendIcon />
+          </button>
+          <button
+            onClick={isListening ? () => recognitionRef.current?.stop() : startListening}
+            disabled={loading || message || !sessionInitialized || sessionComplete || isSpeaking}
+            aria-label={isListening ? 'Stop voice input' : 'Dictate message'}
+            title={isListening ? 'Stop voice input' : 'Dictate message'}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${isListening ? 'bg-red-500 text-white mic-listening' : 'bg-white/85 text-slate-700'} disabled:opacity-30`}
+          >
+            <MicrophoneIcon />
+          </button>
           <input
-            className="w-full placeholder:text-slate-600 placeholder:italic p-4 rounded-xl bg-white/80 backdrop-blur-xl border border-black/10 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 shadow-lg disabled:opacity-50 transition-all"
+            className="w-full placeholder:text-slate-600 placeholder:italic p-4 rounded-xl bg-white/80 backdrop-blur-xl border border-black/10 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F8594]/50 focus:border-[#0F8594]/50 shadow-lg disabled:opacity-50 transition-all"
             placeholder={
               sessionComplete
                 ? "Session complete. Preparing your report..."
@@ -520,43 +560,24 @@ export const UI = ({ hidden, ...props }) => {
             disabled={!sessionInitialized || sessionComplete || isSpeaking}
             onKeyDown={handleKeyPress}
           />
-          <button
-            disabled={loading || message || !sessionInitialized || sessionComplete || isSpeaking}
-            onClick={sendMessage}
-            className={`bg-[#0d5239] hover:bg-[#0a4530] hover:shadow-lg hover:shadow-black/20 text-white p-4 px-10 font-bold uppercase rounded-xl shadow-lg transition-all transform ${
-              loading || message || !sessionInitialized || sessionComplete || isSpeaking
-                ? "cursor-not-allowed opacity-30"
-                : "hover:scale-105"
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center">
-                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                ...
-              </div>
-            ) : "Send"}
-          </button>
-          <button
-            onClick={isListening ? stopListening : startListening}
-            disabled={loading || message || !sessionInitialized || sessionComplete || isSpeaking}
-            className={`p-4 rounded-xl shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-              isListening
-                ? "bg-red-500 text-white mic-listening"
-                : "bg-teal-500 text-white hover:bg-teal-600"
-            }`}
-            title={isListening ? "Stop listening" : "Speak your response"}
-          >
-            {isListening ? "🎙️" : "🎤"}
-          </button>
+          <div className="relative shrink-0">
+            {attachmentMenuOpen && <div className="absolute bottom-14 right-0 z-30 w-44 border border-black/10 bg-white py-1 text-slate-800 shadow-xl pointer-events-auto">
+              <button type="button" onClick={() => { setAttachmentMenuOpen(false); cameraInputRef.current?.click(); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50"><CameraIcon />Use camera</button>
+              <button type="button" onClick={() => { setAttachmentMenuOpen(false); fileInputRef.current?.click(); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50"><PaperclipIcon />Attach files</button>
+            </div>}
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => { uploadDocument(event.target.files?.[0]); event.target.value = ''; }} />
+            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" className="hidden" onChange={(event) => { uploadDocument(event.target.files?.[0]); event.target.value = ''; }} />
+            <button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} disabled={uploading || !user?.id} aria-label="Add attachment" title={uploading ? 'Uploading file' : 'Add attachment'} className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/85 text-slate-700 disabled:opacity-40">
+              {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[#0F8594]" /> : <PlusIcon />}
+            </button>
+          </div>
         </div>
+        {(voiceError || uploadStatus) && <p role="status" className="pointer-events-auto mx-auto mt-2 max-w-screen-sm text-xs text-white">{voiceError || uploadStatus}</p>}
 
         {/* Status Indicators */}
         {loading && (
           <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 pointer-events-none">
-            <div className="bg-[#0d5239] text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg flex items-center animate-pulse">
+            <div className="bg-[#0F8594] text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg flex items-center animate-pulse">
               <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -577,3 +598,9 @@ export const UI = ({ hidden, ...props }) => {
     </>
   );
 };
+
+function SendIcon() { return <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>; }
+function MicrophoneIcon() { return <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8" /></svg>; }
+function CameraIcon() { return <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" /><circle cx="12" cy="13" r="4" /></svg>; }
+function PaperclipIcon() { return <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.9 8.9a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7L9.8 17.1a2 2 0 0 1-2.8-2.8l8.5-8.5" /></svg>; }
+function PlusIcon() { return <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>; }

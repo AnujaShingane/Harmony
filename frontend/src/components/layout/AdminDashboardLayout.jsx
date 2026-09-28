@@ -1,4 +1,5 @@
 import { initialsOf } from '../../utils/initials';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardFooter from './DashboardFooter';
 import { useEffect, useRef, useState } from 'react';
 import { SAGE_DARK, SAGE, SAGE_SOFT, CREAM } from './TherapistDashboardLayout';
@@ -28,6 +29,7 @@ export default function AdminDashboardLayout({
   onOpenNotification,
 }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(storageKey) === '1');
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
@@ -58,7 +60,7 @@ export default function AdminDashboardLayout({
       <aside
         className={`shrink-0 h-full flex flex-col bg-white border-r border-black/[0.06] transition-all duration-300 ease-in-out ${collapsed ? 'w-[80px]' : 'w-[260px]'}`}
       >
-        <div className={`flex items-center gap-2.5 px-6 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
+        <Link to="/" aria-label="Anahat Transformations home" className={`flex items-center gap-2.5 px-6 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
           <img src="/assets/anahat-logo.png" alt="Anahat" className="w-9 h-9 object-contain shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
@@ -66,7 +68,7 @@ export default function AdminDashboardLayout({
               <p className="text-[10px] text-slate-400 truncate -mt-0.5">{roleLabel}</p>
             </div>
           )}
-        </div>
+        </Link>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {navItems.map((item) => {
@@ -108,6 +110,9 @@ export default function AdminDashboardLayout({
       {/* ---------------- MAIN ---------------- */}
       <div className="flex-1 min-w-0 flex flex-col h-full">
         <header className="h-20 shrink-0 flex items-center justify-between gap-4 px-8" style={{ background: CREAM }}>
+          <button type="button" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} aria-label="Go back" title="Go back" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 hover:text-slate-900">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
+          </button>
           <div className="relative w-full max-w-md">
             <SearchIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
@@ -215,8 +220,9 @@ export default function AdminDashboardLayout({
         </header>
 
         <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="max-w-[1200px] mx-auto px-8 pb-10 min-h-full flex flex-col"><div className="flex-1">{children}</div><DashboardFooter /></div>
+          <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 min-h-full flex flex-col"><div className="flex-1 portal-page-content">{children}</div></div>
         </main>
+        <DashboardFooter />
       </div>
 
       {confirmingLogout && (

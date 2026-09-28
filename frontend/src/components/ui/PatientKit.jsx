@@ -3,15 +3,15 @@
 // Notifications, Reports, Profile) composes these instead of one-off markup,
 // so spacing, radii, shadows, and color stay identical everywhere.
 
-export const TEAL = '#0d5239';
-export const TEAL_DARK = '#083b29';
-export const TEAL_LIGHT = '#15794f';
+export const TEAL = '#0F8594';
+export const TEAL_DARK = '#0A6976';
+export const TEAL_LIGHT = '#0F8594';
 export const LIME = '#E3F0A0';
 export const CREAM = '#F6F4EC';
 
 export function PageHeader({ title, subtitle, right }) {
   return (
-    <div className="mb-8 flex items-start justify-between flex-wrap gap-4">
+    <div className="mb-4 flex items-start justify-between flex-wrap gap-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
         {subtitle && <p className="text-slate-500 text-sm mt-1 max-w-xl">{subtitle}</p>}
@@ -23,7 +23,7 @@ export function PageHeader({ title, subtitle, right }) {
 
 export function Card({ children, className = '', ...props }) {
   return (
-    <div className={`bg-white border border-black/5 rounded-3xl shadow-sm ${className}`} {...props}>
+    <div className={`border-b border-black/10 bg-white ${className}`} {...props}>
       {children}
     </div>
   );
@@ -138,7 +138,7 @@ export function TextField({ label, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[11px] uppercase tracking-widest font-bold text-slate-500 ml-0.5">{label}</label>}
       <input
-        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 placeholder-slate-400 focus:border-[#15794f] focus:bg-white outline-none transition-all text-sm"
+        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 placeholder-slate-400 focus:border-[#0F8594] focus:bg-white outline-none transition-all text-sm"
         {...props}
       />
     </div>
@@ -150,7 +150,7 @@ export function TextAreaField({ label, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[11px] uppercase tracking-widest font-bold text-slate-500 ml-0.5">{label}</label>}
       <textarea
-        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 placeholder-slate-400 focus:border-[#15794f] focus:bg-white outline-none transition-all text-sm resize-none"
+        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 placeholder-slate-400 focus:border-[#0F8594] focus:bg-white outline-none transition-all text-sm resize-none"
         {...props}
       />
     </div>
@@ -162,7 +162,7 @@ export function SelectField({ label, options, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[11px] uppercase tracking-widest font-bold text-slate-500 ml-0.5">{label}</label>}
       <select
-        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 focus:border-[#15794f] focus:bg-white outline-none transition-all text-sm"
+        className="w-full px-4 py-3 bg-[#F6F4EC] border border-black/5 rounded-xl text-slate-900 focus:border-[#0F8594] focus:bg-white outline-none transition-all text-sm"
         {...props}
       >
         {options.map((opt) => (

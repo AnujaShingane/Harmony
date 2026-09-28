@@ -9,11 +9,11 @@ export default function DashboardHome({ stats, recentUsers, recentTherapists, re
   return (
     <div className="pt-8 space-y-8">
       <div
-        className="rounded-[2rem] p-8"
+        className="rounded-2xl px-6 py-4"
         style={{ background: `linear-gradient(120deg, ${SAGE_SOFT} 0%, #FBF3E7 100%)` }}
       >
         <p className="text-slate-600 text-sm">Welcome back,</p>
-        <h1 className="font-serif font-bold text-3xl text-slate-900">Technical Admin Console</h1>
+        <h1 className="font-serif font-bold text-2xl text-slate-900">Technical Admin Console</h1>
         <p className="text-slate-500 text-sm mt-1">Application, accounts, and infrastructure-level administration.</p>
       </div>
 

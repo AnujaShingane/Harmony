@@ -39,11 +39,11 @@ export default function TherapistProfilePage() {
 
   return (
     <PatientDashboardLayout active="find-therapist" user={user} onLogout={logout}>
-      <button type="button" onClick={() => navigate('/dashboard/find-therapist')} className="mb-5 text-sm font-semibold text-[#d65b38] hover:underline">← Find your therapist</button>
+      <button type="button" onClick={() => navigate('/dashboard/find-therapist')} className="mb-5 text-sm font-semibold text-[#0A6976] hover:underline">← Find your therapist</button>
       {profileError ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">{profileError}</div> : !therapist ? <PortalLoading /> : (
-        <div className="overflow-hidden rounded-lg border border-[#e5e0dc] bg-white">
+        <div className="overflow-hidden rounded-lg border border-[#E85D35] bg-white">
           <section className="grid grid-cols-1 gap-7 bg-[#e8f5fb] p-6 md:grid-cols-[280px_1fr] md:p-8">
-            <div className="h-72 overflow-hidden border border-[#d7e1e5] bg-white">
+            <div className="h-72 overflow-hidden border border-[#E85D35] bg-white">
               {therapist.avatarUrl ? <img src={therapist.avatarUrl} alt={therapist.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-4xl font-bold text-[#d65b38]">{therapist.name?.split(/\s+/).map((part) => part[0]).slice(0, 2).join('')}</div>}
             </div>
             <div className="flex flex-col justify-center">
@@ -67,7 +67,7 @@ export default function TherapistProfilePage() {
                   <p className="mt-1 text-slate-800">{therapist.fee != null ? `₹${therapist.fee}` : 'Contact for details'}</p>
                 </div>
               </div>
-              <button type="button" onClick={() => navigate(`/dashboard/book-session?therapistId=${encodeURIComponent(therapist.id)}`)} className="mt-7 w-fit rounded-md bg-[#c64c84] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#ae3d72]">Book appointment</button>
+              <button type="button" onClick={() => navigate(`/dashboard/book-session?therapistId=${encodeURIComponent(therapist.id)}`)} className="mt-7 w-fit rounded-md bg-[#0F8594] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0F8594]">Book appointment</button>
             </div>
           </section>
 

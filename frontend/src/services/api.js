@@ -33,10 +33,11 @@ export const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || '';
 // uses — there is no bearer token. `credentials: 'include'` sends the
 // session cookie; `X-Requested-With` satisfies the backend's CSRF-style
 // origin check on non-GET requests (see backend requireAppOrigin middleware).
-async function request(path, { method = 'GET', body, isFormData = false } = {}) {
+async function request(path, { method = 'GET', body, isFormData = false, signal } = {}) {
   const res = await fetch(`${BACKEND_URL}${path}`, {
     method,
     credentials: 'include',
+    signal,
     headers: {
       // Sent on EVERY request (GET too): the backend's app-origin gate
       // rejects any call without it, which is what keeps Postman/Hoppscotch
@@ -371,14 +372,14 @@ export function getFreeSlots(therapistId, date) {
 /** POST /api/appointments — Body: { therapistId, date, startTime }. Server
  * re-validates the slot is free (race-safe against double booking) and
  * creates a mock payment order. Response: { appointment, payment }. */
-export function bookRealAppointment(therapistId, date, startTime, mode = 'online', meetLink) {
-  return request('/api/appointments', { method: 'POST', body: { therapistId, date, startTime, mode, meetLink } });
+export function bookRealAppointment(therapistId, date, startTime, mode = 'online', details = {}) {
+  return request('/api/appointments', { method: 'POST', body: { therapistId, date, startTime, mode, ...details } });
 }
 
 /** POST /api/appointments/payments/:paymentId/pay — confirms the mock
  * payment and flips the appointment to 'confirmed'. */
-export function payForAppointment(paymentId, paymentRef) {
-  return request(`/api/appointments/payments/${paymentId}/pay`, { method: 'POST', body: { paymentRef } });
+export function payForAppointment(paymentId, paymentRef, paymentMethod = 'online', termsAccepted = false) {
+  return request(`/api/appointments/payments/${paymentId}/pay`, { method: 'POST', body: { paymentRef, paymentMethod, termsAccepted } });
 }
 
 /** GET /api/appointments — real bookings for the current user (patient sees
@@ -567,18 +568,19 @@ export function submitSessionFeedback(patientId, body) {
 // ---------------------------------------------------------------------------
 
 /** GET /api/patients/:patientId/relaxation-payment — Response: { paid, fee, currency } */
-export function getRelaxationPaymentStatus(patientId) {
-  return request(`/api/patients/${patientId}/relaxation-payment`);
+export function getRelaxationPaymentStatus(patientId, sessionId) {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  return request(`/api/patients/${patientId}/relaxation-payment${query}`);
 }
 
 /** POST /api/patients/:patientId/relaxation-payment/order — Response: { paymentId, orderId, amount, currency } */
-export function createRelaxationOrder(patientId) {
-  return request(`/api/patients/${patientId}/relaxation-payment/order`, { method: 'POST' });
+export function createRelaxationOrder(patientId, sessionId) {
+  return request(`/api/patients/${patientId}/relaxation-payment/order`, { method: 'POST', body: { sessionId } });
 }
 
 /** POST /api/patients/:patientId/relaxation-payment/:paymentId/pay — Body: { paymentRef } (mock gateway — any value confirms it) */
-export function payRelaxationOrder(patientId, paymentId, paymentRef) {
-  return request(`/api/patients/${patientId}/relaxation-payment/${paymentId}/pay`, { method: 'POST', body: { paymentRef } });
+export function payRelaxationOrder(patientId, paymentId, paymentRef, sessionId) {
+  return request(`/api/patients/${patientId}/relaxation-payment/${paymentId}/pay`, { method: 'POST', body: { paymentRef, sessionId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -1105,7 +1107,7 @@ export const anahat = {
   selectOpening: (id, set_id) => request(`/api/anahat/assessments/${id}/opening`, { method: 'POST', body: { set_id } }),
   analyseQuadrants: (id, current_issue) => request(`/api/anahat/assessments/${id}/quadrants/analyse`, { method: 'POST', body: { current_issue } }),
   selectQuadrants: (id, quadrants) => request(`/api/anahat/assessments/${id}/quadrants`, { method: 'POST', body: { quadrants } }),
-  submitResponse: (id, body) => request(`/api/anahat/assessments/${id}/responses`, { method: 'POST', body }),
+  submitResponse: (id, body, signal) => request(`/api/anahat/assessments/${id}/responses`, { method: 'POST', body, signal }),
   acknowledgeSafety: (id, body) => request(`/api/anahat/assessments/${id}/safety/acknowledge`, { method: 'POST', body }),
   confirmCandidate: (id, candidateId, body) => request(`/api/anahat/assessments/${id}/candidates/${candidateId}/confirm`, { method: 'POST', body }),
   resolveEvidence: (id, evidenceId, body) => request(`/api/anahat/assessments/${id}/evidence/${evidenceId}/resolve`, { method: 'POST', body }),

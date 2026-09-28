@@ -9,7 +9,7 @@ import { getOnboardingConfig } from '../../constants/options';
 import { validatePhone } from '../../utils/phone';
 import PublicNav from '../../components/public/PublicNav';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 const MAX_FILE_MB = 5;
@@ -44,7 +44,7 @@ function IconInput({ icon, className = '', ...props }) {
     <div className={`relative ${className}`}>
       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>
       <input
-        className="w-full pl-10 pr-4 py-3 bg-white border border-black/10 rounded-xl text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-[#0d5239]/40 transition-all"
+        className="w-full pl-10 pr-4 py-3 bg-white border border-black/10 rounded-xl text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-[#0F8594]/40 transition-all"
         {...props}
       />
     </div>
@@ -56,7 +56,7 @@ function IconSelect({ icon, options, placeholder, className = '', ...props }) {
     <div className={`relative ${className}`}>
       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">{icon}</span>
       <select
-        className="w-full pl-10 pr-9 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0d5239]/40 transition-all appearance-none text-slate-800"
+        className="w-full pl-10 pr-9 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594]/40 transition-all appearance-none text-slate-800"
         {...props}
       >
         <option value="">{placeholder}</option>
@@ -412,8 +412,8 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FDF6EE] font-sans text-slate-900 relative overflow-x-hidden">
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-teal-300/30 blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-300/30 blur-[120px]"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0F8594]/45 blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0F8594]/45 blur-[120px]"></div>
       </div>
       <PublicNav tone="light" />
       <div className="relative z-10 flex-1 pt-28 pb-16">
@@ -421,7 +421,7 @@ export default function Onboarding() {
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-[#0d5239] transition-colors"
+          className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-[#0F8594] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
           Back to home
@@ -522,7 +522,7 @@ export default function Onboarding() {
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10"><IconUsers /></span>
                   <select
-                    className="w-full pl-10 pr-9 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0d5239]/40 transition-all appearance-none text-slate-800"
+                    className="w-full pl-10 pr-9 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594]/40 transition-all appearance-none text-slate-800"
                     value={form.formFor}
                     onChange={update('formFor')}
                   >
@@ -764,7 +764,7 @@ export default function Onboarding() {
           additionalInfo: e.target.value
         }))
       }
-      className="w-full pl-10 pr-4 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0d5239]/40 transition-all resize-none"
+      className="w-full pl-10 pr-4 py-3 bg-white border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594]/40 transition-all resize-none"
     />
 
     <span className="absolute bottom-2.5 right-4 text-[11px] text-slate-400">

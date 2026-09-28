@@ -5,7 +5,7 @@ import { getProfile, saveProfile } from '../../services/api';
 import { CONSENT_SECTIONS, CONSENT_CHECKBOXES } from '../../constants/consent';
 import PublicNav from '../../components/public/PublicNav';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 export const consentKey = (userId) => `anahat_consent_${userId}`;
@@ -57,7 +57,7 @@ export default function Consent() {
         <button
           type="button"
           onClick={() => navigate('/onboarding')}
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-[#0d5239] transition-colors"
+          className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-[#0F8594] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
           Back to form
@@ -97,7 +97,7 @@ export default function Consent() {
                     type="checkbox"
                     checked={!!checks[c.key]}
                     onChange={(e) => setChecks((ch) => ({ ...ch, [c.key]: e.target.checked }))}
-                    className="mt-1 w-4 h-4 accent-[#0d5239]"
+                    className="mt-1 w-4 h-4 accent-[#0F8594]"
                   />
                   <span className="text-sm text-slate-700 leading-relaxed">{c.label}</span>
                 </label>

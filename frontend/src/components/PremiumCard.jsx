@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSubscriptionStatus, createPremiumOrder, confirmPremiumUpgrade } from '../services/api';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 /**
  * Shows the patient's current plan (Basic/Premium), their remaining free AI

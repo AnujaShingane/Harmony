@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatientSession } from '../../hooks/usePatientSession';
 import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
 import { PortalError, PortalLoading } from '../../components/layout/PortalStatus';
+import TherapistCard from '../../components/patient/TherapistCard';
 import { getFreeSlots, getTherapists } from '../../services/api';
 
 const today = () => {
@@ -53,67 +54,73 @@ export default function FindTherapist() {
 
   return (
     <PatientDashboardLayout active="find-therapist" user={user} onLogout={logout}>
-      <div className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#d65b38]">Consultation</p>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900">Find your therapist</h1>
-        <p className="mt-1 text-sm text-slate-500">Browse therapists who have completed their profile and are available to book.</p>
+      {/* Static header + filter bar — pinned to the top of the scroll area.
+          Only the results grid beneath it scrolls. */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-[#F6F4EC]/95 px-4 pb-3 pt-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0A6976]">Consultation</p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">Find your therapist</h1>
+
+        <div className="mt-3 flex flex-col gap-3 border-b border-black/[0.06] pb-3 md:flex-row md:items-end md:gap-4">
+          <label className="block flex-[2] text-xs font-semibold text-slate-500">
+            Concern or therapist
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Sleep, anxiety, music therapy..."
+              className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#0F8594] focus:ring-2 focus:ring-[#0F8594]/20"
+            />
+          </label>
+          <label className="block flex-1 text-xs font-semibold text-slate-500">
+            Location
+            <select
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#0F8594] focus:ring-2 focus:ring-[#0F8594]/20"
+            >
+              <option value="">All locations</option>
+              {locations.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="block flex-1 text-xs font-semibold text-slate-500">
+            Available on
+            <input
+              type="date"
+              value={date}
+              min={today()}
+              onChange={(event) => setDate(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#0F8594] focus:ring-2 focus:ring-[#0F8594]/20"
+            />
+          </label>
+          <label className="flex shrink-0 items-center gap-2.5 pb-2.5 text-sm font-semibold text-slate-600">
+            <input type="checkbox" checked={availableOnly} onChange={(event) => setAvailableOnly(event.target.checked)} className="h-4 w-4 accent-[#0F8594]" />
+            Has open slots
+          </label>
+        </div>
+        {checkingAvailability && <p className="pt-3 text-xs text-slate-400">Checking live appointment availability…</p>}
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-[#eee3dc] bg-white p-4 md:grid-cols-[minmax(220px,1fr)_200px_auto_auto] md:items-end">
-        <label className="block text-xs font-semibold text-slate-600">
-          Concern or therapist
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Sleep, anxiety, music therapy..." className="mt-1.5 w-full rounded-lg border border-black/10 px-3 py-2.5 text-sm outline-none focus:border-[#e85d35]" />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600">
-          Location
-          <select value={location} onChange={(event) => setLocation(event.target.value)} className="mt-1.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm">
-            <option value="">All locations</option>
-            {locations.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="block text-xs font-semibold text-slate-600">
-          Available on
-          <input type="date" value={date} min={today()} onChange={(event) => setDate(event.target.value)} className="mt-1.5 w-full rounded-lg border border-black/10 px-3 py-2.5 text-sm" />
-        </label>
-        <label className="flex items-center gap-2 pb-2 text-sm font-semibold text-slate-700">
-          <input type="checkbox" checked={availableOnly} onChange={(event) => setAvailableOnly(event.target.checked)} className="h-4 w-4 accent-[#e85d35]" />
-          Has open slots
-        </label>
+      {/* Scrolling results */}
+      <div className="pt-4">
+        {therapists === null ? (
+          <p className="py-16 text-center text-sm text-slate-500">Loading therapists…</p>
+        ) : visible.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#e7d6cb] bg-white/60 px-6 py-16 text-center">
+            <h2 className="font-semibold text-slate-800">No matching therapists</h2>
+            <p className="mt-2 text-sm text-slate-500">Try a broader concern, another location, or a different date.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-stretch gap-4 pb-4 sm:grid-cols-2 xl:grid-cols-3">
+            {visible.map((therapist) => (
+              <TherapistCard
+                key={therapist.id}
+                therapist={therapist}
+                onViewProfile={() => navigate(`/dashboard/therapists/${therapist.id}`)}
+                onBook={() => navigate(`/dashboard/book-session?therapistId=${encodeURIComponent(therapist.id)}`)}
+              />
+            ))}
+          </div>
+        )}
       </div>
-
-      {checkingAvailability && <p className="mb-4 text-xs text-slate-500">Checking live appointment availability…</p>}
-      {therapists === null ? <p className="py-12 text-center text-sm text-slate-500">Loading therapists…</p> : visible.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#e7d6cb] bg-[#fff8f3] px-6 py-12 text-center">
-          <h2 className="font-semibold text-slate-800">No matching therapists</h2>
-          <p className="mt-2 text-sm text-slate-500">Try a broader concern, another location, or a different date.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((therapist) => (
-            <article key={therapist.id} className="overflow-hidden rounded-lg border border-[#e9e2dd] bg-white">
-              <div className="flex gap-4 p-5">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-[#fff3ed]">
-                  {therapist.avatarUrl ? <img src={therapist.avatarUrl} alt={therapist.name} className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-lg font-bold text-[#d65b38]">{therapist.name?.split(/\s+/).map((part) => part[0]).slice(0, 2).join('')}</span>}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="truncate text-base font-bold text-slate-900">{therapist.name}</h2>
-                  <p className="mt-1 text-xs text-slate-500">{therapist.profile?.profession || 'Therapist'}</p>
-                  {therapist.experienceYears != null && <p className="mt-2 text-xs font-semibold text-slate-700">Experience · {therapist.experienceYears}+ years</p>}
-                  {therapist.location && <p className="mt-1 truncate text-xs text-slate-500">{therapist.location}</p>}
-                </div>
-              </div>
-              <div className="px-5 pb-4">
-                <p className="min-h-10 text-xs leading-relaxed text-slate-600">{therapist.expertise?.join(', ') || therapist.bio || 'Music therapy and wellbeing support'}</p>
-                {therapist.fee != null && <p className="mt-2 text-sm font-semibold text-slate-800">₹{therapist.fee} <span className="text-xs font-normal text-slate-500">per session</span></p>}
-                <div className="mt-4 flex gap-2">
-                  <button type="button" onClick={() => navigate(`/dashboard/therapists/${therapist.id}`)} className="flex-1 rounded-md border border-[#e85d35] px-3 py-2.5 text-xs font-semibold text-[#d65b38] hover:bg-[#fff5ef]">View profile</button>
-                  <button type="button" onClick={() => navigate(`/dashboard/book-session?therapistId=${encodeURIComponent(therapist.id)}`)} className="flex-1 rounded-md bg-[#e85d35] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#d84d2c]">Book appointment</button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
     </PatientDashboardLayout>
   );
 }

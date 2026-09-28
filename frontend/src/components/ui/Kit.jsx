@@ -1,26 +1,35 @@
 import PublicNav from '../public/PublicNav';
+import PublicFooter from '../public/PublicFooter';
+import { useNavigate } from 'react-router-dom';
 // Shared UI primitives for the ANAHAT patient / therapist / admin experiences.
 // Kept deliberately lightweight and dependency-free so they drop into the
 // existing Tailwind + serif/amber design language without any redesign.
 
-export function PageShell({ children, className = '' }) {
+export function PageShell({ children, className = '', fullScreen = false, showBack = true }) {
+  const navigate = useNavigate();
   return (
-    <div className={`h-screen w-full overflow-y-auto bg-[#FDF6EE] text-slate-900 font-sans relative ${className}`}>
-      <div
+    <div className={`${fullScreen ? 'h-[100dvh] overflow-hidden' : 'min-h-screen overflow-y-auto'} relative flex w-full flex-col bg-[#FDF6EE] font-sans text-slate-900 ${className}`}>
+      {!fullScreen && <div
         className="fixed inset-0 opacity-[0.04] pointer-events-none z-0 mix-blend-overlay"
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
-      />
-      <PublicNav tone="light" />
-      <div className="relative z-10 min-h-screen flex flex-col pt-24">
-        <div className="flex-1">{children}</div>
-        </div>
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23000'/%3E%3C/svg%3E")` }}
+      />}
+      {!fullScreen && <PublicNav tone="light" />}
+      <div className={`relative z-10 flex ${fullScreen ? 'h-full min-h-0 flex-col' : 'min-h-0 flex-1 flex-col pt-24'}`}>
+        {showBack && <div className="shrink-0 px-4 pt-2 sm:px-6">
+          <button type="button" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} aria-label="Go back" title="Go back" className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-slate-600 hover:text-slate-900">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>}
+        <div className={`flex-1 ${fullScreen ? 'min-h-0' : ''}`}>{children}</div>
+      </div>
+      {!fullScreen && <PublicFooter />}
     </div>
   );
 }
 
 export function Card({ children, className = '' }) {
   return (
-    <div className={`td-card-hover bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-xl shadow-teal-500/5 p-7 md:p-10 ${className}`}>
+    <div className={`border-b border-black/10 bg-white px-5 py-5 md:px-6 md:py-6 ${className}`}>
       {children}
     </div>
   );
@@ -28,7 +37,7 @@ export function Card({ children, className = '' }) {
 
 export function SectionHeading({ eyebrow, title, subtitle, right }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-10">
+    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
       <div>
         {eyebrow && (
           <span className="text-[11px] font-bold uppercase tracking-widest text-sunset">{eyebrow}</span>
@@ -91,6 +100,7 @@ export function statusMeta(status) {
     scheduled: { tone: 'emerald', label: 'Upcoming' },
     completed: { tone: 'emerald', label: 'Done' },
     done: { tone: 'emerald', label: 'Done' },
+    past: { tone: 'slate', label: 'Past' },
     cancelled: { tone: 'red', label: 'Cancelled' },
     rejected: { tone: 'red', label: 'Cancelled' },
     declined: { tone: 'red', label: 'Cancelled' },
@@ -108,7 +118,7 @@ export function TextField({ label, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">{label}</label>}
       <input
-        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-sunset focus:bg-white focus:shadow-[0_0_0_3px_rgba(13,82,57,0.12)] outline-none transition-all duration-200"
+        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-[#0F8594] focus:bg-white focus:shadow-[0_0_0_3px_rgba(32,175,192,0.15)] outline-none transition-all duration-200"
         {...props}
       />
     </div>
@@ -120,7 +130,7 @@ export function SelectField({ label, options, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">{label}</label>}
       <select
-        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 focus:border-sunset focus:bg-white focus:shadow-[0_0_0_3px_rgba(13,82,57,0.12)] outline-none transition-all duration-200"
+        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 focus:border-[#0F8594] focus:bg-white focus:shadow-[0_0_0_3px_rgba(32,175,192,0.15)] outline-none transition-all duration-200"
         {...props}
       >
         {options.map((opt) => (
@@ -136,7 +146,7 @@ export function TextAreaField({ label, className = '', ...props }) {
     <div className={`space-y-1.5 ${className}`}>
       {label && <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">{label}</label>}
       <textarea
-        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-sunset focus:bg-white focus:shadow-[0_0_0_3px_rgba(13,82,57,0.12)] outline-none transition-all duration-200 resize-none"
+        className="w-full px-5 py-3.5 bg-black/[0.025] border border-black/10 rounded-2xl text-slate-900 placeholder-slate-400 focus:border-[#0F8594] focus:bg-white focus:shadow-[0_0_0_3px_rgba(32,175,192,0.15)] outline-none transition-all duration-200 resize-none"
         {...props}
       />
     </div>

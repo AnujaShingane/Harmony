@@ -5,7 +5,7 @@ import PatientDashboardLayout from '../../components/layout/PatientDashboardLayo
 import { PortalLoading, PortalError } from '../../components/layout/PortalStatus';
 import { Card, PrimaryButton, OutlineButton, StatusBadge, EmptyState, CardSkeleton, TEAL } from '../../components/ui/PatientKit';
 import { getMyAppointmentsForPatient, updateAppointmentStatus } from '../../services/api';
-import { canJoinAppointment, getAppointmentSessionWindow } from '../../utils/derived';
+import { canJoinAppointment, getAppointmentSessionWindow, isAppointmentPast, parseAppointmentDateTime } from '../../utils/derived';
 import { formatISTDateTime } from '../../utils/time';
 
 // Appointments are grouped into Upcoming / Completed / Cancelled.
@@ -14,9 +14,10 @@ import { formatISTDateTime } from '../../utils/time';
 //  • Offline → "Attend Session" (in person; no link). The therapist marks it
 //    completed afterwards and it moves to Completed as "Attended".
 const SECTIONS = [
-  { key: 'upcoming', title: 'Upcoming', match: (a) => !['cancelled', 'completed'].includes(a.status) },
-  { key: 'completed', title: 'Completed', match: (a) => a.status === 'completed' },
-  { key: 'cancelled', title: 'Cancelled', match: (a) => a.status === 'cancelled' },
+  { key: 'upcoming', title: 'Upcoming' },
+  { key: 'past', title: 'Past' },
+  { key: 'completed', title: 'Completed' },
+  { key: 'cancelled', title: 'Cancelled' },
 ];
 
 export default function Appointments() {
@@ -39,11 +40,13 @@ export default function Appointments() {
     const q = query.trim().toLowerCase();
     const list = [...appointments]
       .filter((a) => !q || [a.therapistName, a.date, a.startTime, a.status, a.mode].some((v) => String(v || '').toLowerCase().includes(q)));
-    const up = list.filter(SECTIONS[0].match).sort((a, b) => new Date(a.scheduledAt || a.createdAt) - new Date(b.scheduledAt || b.createdAt));
-    const done = list.filter(SECTIONS[1].match).sort((a, b) => new Date(b.scheduledAt || b.createdAt) - new Date(a.scheduledAt || a.createdAt));
-    const cancelled = list.filter(SECTIONS[2].match).sort((a, b) => new Date(b.scheduledAt || b.createdAt) - new Date(a.scheduledAt || a.createdAt));
-    return { upcoming: up, completed: done, cancelled };
-  }, [appointments, query]);
+    const active = list.filter((a) => !['cancelled', 'completed'].includes(a.status));
+    const up = active.filter((a) => !isAppointmentPast(a, now)).sort((a, b) => parseAppointmentDateTime(a) - parseAppointmentDateTime(b));
+    const past = active.filter((a) => isAppointmentPast(a, now)).sort((a, b) => parseAppointmentDateTime(b) - parseAppointmentDateTime(a));
+    const done = list.filter((a) => a.status === 'completed').sort((a, b) => parseAppointmentDateTime(b) - parseAppointmentDateTime(a));
+    const cancelled = list.filter((a) => a.status === 'cancelled').sort((a, b) => parseAppointmentDateTime(b) - parseAppointmentDateTime(a));
+    return { upcoming: up, past, completed: done, cancelled };
+  }, [appointments, query, now]);
 
   if (loading) return <PortalLoading />;
   if (error) return <PortalError message={error} onRetry={reload} onLogout={logout} />;
@@ -107,7 +110,7 @@ export default function Appointments() {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                          {sec.key === 'completed' ? <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700">{offline ? 'Attended' : 'Completed'}</span> : <StatusBadge status={a.status} />}
+                          {sec.key === 'completed' ? <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700">{offline ? 'Attended' : 'Completed'}</span> : sec.key === 'past' ? <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest bg-slate-100 text-slate-600">Past session</span> : <StatusBadge status={a.status} />}
                           {isActive && opensAt && (
                             offline ? (
                               <PrimaryButton disabled={!canJoin} onClick={() => handleJoin(a)} className="!py-2 !px-4 text-xs" title={canJoin ? 'Meet your therapist in person now' : 'Opens 5 minutes before your slot'}>

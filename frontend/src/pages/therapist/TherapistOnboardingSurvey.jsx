@@ -7,7 +7,7 @@ import { isValidPhone } from '../../utils/phone';
 import { PageShell, Card, SectionHeading, PrimaryButton, TextField, SelectField, TextAreaField } from '../../components/ui/Kit';
 import BackButton from '../../components/layout/BackButton';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 // Therapist demographic form, shown once after sign-up. Submitting takes the
@@ -95,7 +95,7 @@ export default function TherapistOnboardingSurvey() {
   };
 
   return (
-    <PageShell>
+    <PageShell showBack={false}>
       <div className="max-w-3xl mx-auto px-6 py-12">
         <BackButton to="/" label="Back to home" className="mb-6" />
         <SectionHeading
@@ -107,17 +107,30 @@ export default function TherapistOnboardingSurvey() {
         <Card className="space-y-6">
           {/* Profile photo — required */}
           <div className="flex items-center gap-5">
-            <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center border-4 border-white shadow-lg shrink-0" style={{ background: CREAM, color: TEAL }}>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              className={`group relative w-24 h-24 rounded-full overflow-hidden flex items-center justify-center border-4 shrink-0 transition ${
+                avatarPreview ? 'border-white shadow-lg' : 'border-dashed border-[#0F8594]/50 shadow-sm'
+              }`}
+              style={{ background: avatarPreview ? undefined : CREAM, color: TEAL }}
+              aria-label={avatarPreview ? 'Change profile photo' : 'Upload profile photo (required)'}
+            >
               {avatarPreview ? (
-                <img src={avatarPreview} alt="Profile preview" className="w-full h-full object-cover" />
+                <>
+                  <img src={avatarPreview} alt="Profile preview" className="w-full h-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-[10px] font-bold uppercase tracking-wide opacity-0 transition group-hover:opacity-100">
+                    Change
+                  </span>
+                </>
               ) : (
-                <svg className="w-10 h-10 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                <svg className="w-9 h-9 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h1.2a2 2 0 001.6-.8l.8-1.2A2 2 0 0110.2 4h3.6a2 2 0 011.6.8l.8 1.2a2 2 0 001.6.8H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3.5" /></svg>
               )}
-            </div>
+            </button>
             <div>
-              <p className="text-sm font-bold text-slate-800">Profile photo <span className="font-bold text-red-600">*</span></p>
-              <p className="text-xs text-slate-500 mb-2">Required for your booking profile. JPG or PNG, max 5MB.</p>
-              <button type="button" onClick={() => avatarInputRef.current?.click()} className="px-4 py-2 rounded-xl border border-black/10 text-xs font-bold text-slate-700 hover:bg-black/[0.02]">
+              <p className="text-sm font-bold text-slate-800">Profile photo <span className="font-bold text-[#e85d35]">* required</span></p>
+              <p className="text-xs text-slate-500 mb-2">Patients see this on your booking card — profiles can't be submitted without one. JPG or PNG, max 5MB.</p>
+              <button type="button" onClick={() => avatarInputRef.current?.click()} className="px-4 py-2 rounded-xl border border-[#0F8594]/50 text-xs font-bold text-[#0A6976] hover:bg-[#E5F7F8] transition">
                 {avatarFile ? 'Change photo' : 'Upload photo'}
               </button>
               <input ref={avatarInputRef} type="file" accept=".jpg,.jpeg,.png" onChange={onAvatar} className="hidden" aria-required="true" />

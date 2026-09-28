@@ -6,7 +6,7 @@ import { isWeeklyFeedbackDue } from '../../utils/derived';
 import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
 import { pickFiveStatements, FEELING_SCALE } from '../../constants/feelingScale';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 export default function WeeklyFeedback() {
@@ -83,7 +83,7 @@ export default function WeeklyFeedback() {
                 <select
                   value={values[statement] || ''}
                   onChange={(e) => setValues((v) => ({ ...v, [statement]: Number(e.target.value) }))}
-                  className="w-full sm:w-52 px-3 py-2.5 bg-[#FBFAF6] border border-black/10 rounded-xl text-sm outline-none focus:border-[#0d5239]/40"
+                  className="w-full sm:w-52 px-3 py-2.5 bg-[#FBFAF6] border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594]/40"
                 >
                   <option value="" disabled>Choose one…</option>
                   {FEELING_SCALE.map((opt) => (
@@ -100,7 +100,7 @@ export default function WeeklyFeedback() {
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
                 placeholder="A win, a worry, a question…"
-                className="w-full px-5 py-3.5 bg-[#FBFAF6] border border-black/5 rounded-2xl outline-none focus:border-[#0d5239]/40 focus:bg-white transition-all resize-none text-sm"
+                className="w-full px-5 py-3.5 bg-[#FBFAF6] border border-black/5 rounded-2xl outline-none focus:border-[#0F8594]/40 focus:bg-white transition-all resize-none text-sm"
               />
             </div>
 

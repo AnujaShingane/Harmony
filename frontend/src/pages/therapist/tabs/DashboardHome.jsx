@@ -64,11 +64,11 @@ export default function DashboardHome({
     <div className="pt-8 space-y-8">
       {/* Welcome banner */}
       <div
-        className="td-animate-in rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center gap-6 justify-between"
+        className="td-animate-in rounded-2xl px-6 py-4 flex flex-col md:flex-row md:items-center gap-4 justify-between"
         style={{ background: `linear-gradient(120deg, ${SAGE_SOFT} 0%, #FBF3E7 100%)` }}
       >
         <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full overflow-hidden bg-white flex items-center justify-center text-2xl font-bold shrink-0 shadow-sm" style={{ color: SAGE_DARK }}>
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center text-lg font-bold shrink-0 shadow-sm" style={{ color: SAGE_DARK }}>
             {avatarUrl ? <img src={avatarUrl} alt={therapistName} className="w-full h-full object-cover" /> : initialsOf(therapistName)}
           </div>
           <div>
@@ -80,7 +80,7 @@ export default function DashboardHome({
             <p className="text-slate-500 text-sm mt-1">You are making a difference in people's lives every day.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3 md:justify-end">
+        <div className="flex flex-wrap gap-2 md:justify-end">
           <StatPill icon="sessions" value={stats.todaySessions} label="Today's Sessions" />
           <StatPill icon="patients" value={stats.totalPatients} label="Total Patients" />
           <StatPill icon="reports" value={stats.reportsShared} label="Reports Shared" />

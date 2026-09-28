@@ -27,8 +27,12 @@ class Settings(BaseSettings):
     insufficient_score_threshold: float = 0.20
 
     # LLM provider configuration
-    llm_provider: str = "gemini"
-    llm_fallback_providers: str = ""
+    llm_provider: str = "local"
+    llm_fallback_providers: str = "gemini,openrouter"
+
+    local_llm_url: str = "http://127.0.0.1:11434"
+    local_llm_model: str = "llama3:latest"
+    local_llm_keep_alive: str = "30m"
 
     gemini_api_key: str | None = None
     gemini_model: str | None = None
@@ -43,8 +47,8 @@ class Settings(BaseSettings):
     llm_model: str = "gemini-2.5-flash"
 
     # Bounded retry / timeout controls
-    llm_request_timeout_seconds: float = 25.0
-    llm_total_timeout_seconds: float = 60.0
+    llm_request_timeout_seconds: float = 90.0
+    llm_total_timeout_seconds: float = 180.0
     llm_max_retries: int = 1
     llm_retry_backoff_seconds: float = 0.5
     llm_retry_backoff_max_seconds: float = 8.0

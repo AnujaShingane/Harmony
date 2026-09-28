@@ -29,7 +29,7 @@ from app.llm.schemas import SemanticExtraction
 
 class ResilientLLMProvider(LLMProvider):
     def __init__(self, providers: list[LLMProvider], *, config_failures: list[LLMProviderError] | None = None,
-                 total_timeout: float = 60.0):
+                 total_timeout: float = 180.0):
         self._providers = list(providers)
         self._config_failures = list(config_failures or [])
         self.total_timeout = total_timeout
@@ -85,6 +85,15 @@ class ResilientLLMProvider(LLMProvider):
 # --------------------------------------------------------------------------- #
 def _build_one(name: str, cfg: Settings, primary: str) -> LLMProvider:
     is_primary = name == primary
+    if name in {"local", "ollama"}:
+        from app.llm.local_provider import LocalOllamaProvider
+        return LocalOllamaProvider(
+            base_url=cfg.local_llm_url,
+            model=cfg.local_llm_model,
+            keep_alive=cfg.local_llm_keep_alive,
+            request_timeout=cfg.llm_request_timeout_seconds,
+            total_timeout=cfg.llm_total_timeout_seconds,
+        )
     if name == "openrouter":
         from app.llm.openrouter_provider import OpenRouterProvider
         return OpenRouterProvider(
@@ -100,8 +109,15 @@ def _build_one(name: str, cfg: Settings, primary: str) -> LLMProvider:
         )
     if name == "gemini":
         from app.llm.gemini_provider import GeminiProvider
+        model = cfg.llm_model if is_primary else cfg.gemini_model
+        if not model:
+            raise LLMConfigurationError(
+                "Gemini fallback model is not configured",
+                category="configuration",
+                provider="gemini",
+            )
         return GeminiProvider(
-            model=cfg.llm_model if is_primary else cfg.gemini_model,
+            model=model,
             api_key=cfg.gemini_api_key,
             request_timeout=cfg.llm_request_timeout_seconds,
             total_timeout=cfg.llm_total_timeout_seconds,
@@ -130,7 +146,7 @@ def build_llm_provider(cfg: Settings | None = None) -> ResilientLLMProvider:
         except LLMConfigurationError as exc:
             exc.provider = exc.provider or name
             config_failures.append(exc)
-            log_attempt(logging.ERROR, "provider_not_configured", provider=name, detail=scrub(exc))
+            log_attempt(logging.WARNING, "optional_provider_skipped", provider=name, category=exc.category)
 
     return ResilientLLMProvider(providers, config_failures=config_failures,
                                 total_timeout=cfg.llm_total_timeout_seconds)

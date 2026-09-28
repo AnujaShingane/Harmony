@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getSession, sendSessionMessage } from '../../services/api';
+import { addDocument, getSession, sendSessionMessage } from '../../services/api';
 import { PageShell, Card, Badge } from '../../components/ui/Kit';
+import SessionChatComposer from '../../components/chat/SessionChatComposer';
 
 export default function PatientLiveSession() {
   const { sessionId } = useParams();
@@ -38,6 +39,11 @@ export default function PatientLiveSession() {
     setChatInput('');
   };
 
+  const uploadAttachment = async (file) => {
+    if (!user?.id || !file) throw new Error('Sign in again before uploading a file.');
+    await addDocument(user.id, { file, name: file.name, size: file.size, category: 'Previous Report' });
+  };
+
   if (!session) {
     if (loading) return <PageShell><div className="min-h-screen" /></PageShell>;
     return (
@@ -56,18 +62,19 @@ export default function PatientLiveSession() {
   const ended = session.status !== 'active';
 
   return (
-    <PageShell>
-      <div className="max-w-3xl mx-auto px-6 py-10 h-screen flex flex-col">
-        <div className="flex items-center justify-between mb-6 shrink-0">
+    <PageShell fullScreen>
+      <div className="flex h-full min-h-0 w-full flex-col bg-[#F7F6F2]">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-black/[0.08] bg-white px-5 py-4 sm:px-8">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-widest text-sunset">Live Session</span>
-            <h1 className="text-2xl font-serif font-bold text-slate-900 mt-1">With {session.therapistName}</h1>
+            <h1 className="mt-1 text-xl font-serif font-bold text-slate-900">With {session.therapistName}</h1>
           </div>
           <Badge tone={ended ? 'slate' : 'emerald'}>{ended ? 'Ended' : 'Active'}</Badge>
         </div>
 
-        <Card className="!p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
+            <div className="mx-auto w-full max-w-5xl space-y-3">
             {session.messages.length === 0 ? (
               <p className="text-sm text-slate-400 text-center mt-10">
                 {ended ? 'This session has ended. Your therapist will share a report under Reports.' : `You're in. Say hello — ${session.therapistName} can see your messages as you send them.`}
@@ -84,19 +91,21 @@ export default function PatientLiveSession() {
               ))
             )}
             <div ref={chatEndRef} />
+            </div>
           </div>
-          <div className="p-4 border-t border-black/5 flex gap-2 shrink-0">
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-              placeholder={ended ? 'This session has ended' : 'Type a message...'}
-              disabled={ended}
-              className="flex-1 px-4 py-3 bg-black/[0.03] border border-black/10 rounded-xl text-sm outline-none focus:border-sunset disabled:opacity-50"
-            />
-            <button onClick={sendChat} disabled={ended} className="btn-sunset px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest disabled:opacity-50">Send</button>
+          <div className="flex shrink-0 border-t border-black/[0.08] bg-white px-4 py-4 sm:px-8">
+            <div className="mx-auto w-full max-w-5xl">
+              <SessionChatComposer
+                value={chatInput}
+                onChange={setChatInput}
+                onSend={sendChat}
+                onUpload={uploadAttachment}
+                disabled={ended}
+                placeholder={ended ? 'This session has ended' : 'Type a message...'}
+              />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
     </PageShell>
   );

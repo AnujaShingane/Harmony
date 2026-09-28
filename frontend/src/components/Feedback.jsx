@@ -125,9 +125,9 @@ export default function Feedback() {
              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` }}>
         </div>
         
-        <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-teal-500/20 relative z-10">
+        <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-8 shadow-2xl shadow-[#0F8594]/20 relative z-10">
           <div className="text-center">
-            <svg className="animate-spin h-12 w-12 mx-auto text-teal-500 mb-4" viewBox="0 0 24 24">
+            <svg className="animate-spin h-12 w-12 mx-auto text-[#0F8594] mb-4" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -160,12 +160,12 @@ export default function Feedback() {
           <p className="text-sm text-slate-500 mb-6">
             Thank you for helping us improve your healing journey.
           </p>
-          <div className="text-teal-400 font-semibold mb-4">
+          <div className="text-[#0F8594]/75 font-semibold mb-4">
             Redirecting to dashboard...
           </div>
           <button
             onClick={() => navigate('/dashboard')}
-            className="w-full px-6 py-3 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 transition-all font-bold"
+            className="w-full px-6 py-3 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 transition-all font-bold"
           >
             Go to Dashboard Now
           </button>
@@ -207,11 +207,11 @@ export default function Feedback() {
       </div>
 
       <div
-        className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-teal-300/10 via-teal-500/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
+        className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-[#0F8594]/45 via-[#0F8594]/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
         style={{ transform: `translate(${mousePos.x - 300}px, ${mousePos.y - 300}px)`, background: 'radial-gradient(circle at center, rgba(251, 191, 36, 0.1), rgba(168, 85, 247, 0.05), transparent)' }}
       />
 
-      <div className="fixed inset-0 bg-[#FDF6EF] overflow-y-auto selection:bg-teal-500/30">
+      <div className="fixed inset-0 bg-[#FDF6EF] overflow-y-auto selection:bg-[#0F8594]/30">
         <div className="min-h-full p-4 sm:p-6 py-8 relative z-10">
           <div className="max-w-4xl mx-auto pb-8">
             {/* Back Button */}
@@ -227,11 +227,11 @@ export default function Feedback() {
               </button>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-4 sm:p-8 shadow-2xl shadow-teal-500/10 mb-6">
+            <div className="bg-white/80 backdrop-blur-xl border border-black/5 rounded-[2rem] p-4 sm:p-8 shadow-2xl shadow-[#0F8594]/10 mb-6">
               <div className="text-center mb-6">
                 <div className="relative w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-teal-500 blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
-                  <svg className="w-12 h-12 text-teal-100 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="absolute inset-0 bg-[#0F8594] blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
+                  <svg className="w-12 h-12 text-[#0F8594]/12 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
@@ -248,14 +248,14 @@ export default function Feedback() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Dynamic Health Questions */}
                 {dynamicQuestions.length > 0 && (
-                  <div className="bg-teal-500/10 border border-teal-500/30 rounded-2xl p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-serif font-bold text-teal-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                  <div className="bg-[#0F8594]/10 border border-[#0F8594]/30 rounded-2xl p-4 sm:p-6">
+                    <h3 className="text-lg sm:text-xl font-serif font-bold text-[#0F8594]/75 mb-4 flex items-center gap-2 uppercase tracking-wider">
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                       </svg>
                       Health Monitoring
                     </h3>
-                    <p className="text-xs sm:text-sm text-teal-300/80 mb-4">
+                    <p className="text-xs sm:text-sm text-[#0F8594]/45 mb-4">
                       Based on your session, please provide the following measurements:
                     </p>
 
@@ -271,7 +271,7 @@ export default function Feedback() {
                                 type="number"
                                 step="0.1"
                                 placeholder={q.placeholder || "Enter value"}
-                                className="w-full px-3 sm:px-4 py-2 bg-black/5 border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 text-sm sm:text-base transition-all"
+                                className="w-full px-3 sm:px-4 py-2 bg-black/5 border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F8594]/50 focus:border-[#0F8594]/50 text-sm sm:text-base transition-all"
                                 onChange={(e) => handleChange(`${q.id}_before`, e.target.value)}
                                 required
                               />
@@ -282,7 +282,7 @@ export default function Feedback() {
                                 type="number"
                                 step="0.1"
                                 placeholder={q.placeholder || "Enter value"}
-                                className="w-full px-3 sm:px-4 py-2 bg-black/5 border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 text-sm sm:text-base transition-all"
+                                className="w-full px-3 sm:px-4 py-2 bg-black/5 border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F8594]/50 focus:border-[#0F8594]/50 text-sm sm:text-base transition-all"
                                 onChange={(e) => handleChange(`${q.id}_after`, e.target.value)}
                                 required
                               />
@@ -302,8 +302,8 @@ export default function Feedback() {
                                 />
                                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center font-bold transition-all text-xs sm:text-sm ${
                                   responses[q.id] === num 
-                                    ? 'bg-[#0d5239] text-white border-[#0d5239] scale-110 shadow-lg' 
-                                    : 'bg-black/5 text-slate-600 border-black/5 hover:border-teal-500/50'
+                                    ? 'bg-[#0F8594] text-white border-[#0F8594] scale-110 shadow-lg' 
+                                    : 'bg-black/5 text-slate-600 border-black/5 hover:border-[#0F8594]/50'
                                 }`}>
                                   {num}
                                 </div>
@@ -322,7 +322,7 @@ export default function Feedback() {
                 {/* Static Questions */}
                 {staticQuestions.map((section) => (
                   <div key={section.section} className="border-b border-black/5 pb-6">
-                    <h3 className="text-lg sm:text-xl font-serif font-bold text-teal-400 mb-4 uppercase tracking-wider">{section.section}</h3>
+                    <h3 className="text-lg sm:text-xl font-serif font-bold text-[#0F8594]/75 mb-4 uppercase tracking-wider">{section.section}</h3>
 
                     {section.items.map((q) => (
                       <div key={q.id} className="mb-6 bg-black/[0.02] border border-black/[0.04] rounded-xl p-4">
@@ -340,8 +340,8 @@ export default function Feedback() {
                               />
                               <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center font-bold transition-all text-sm ${
                                 responses[q.id] === num 
-                                  ? 'bg-[#0d5239] text-white border-[#0d5239] scale-110 shadow-lg' 
-                                  : 'bg-black/5 text-slate-600 border-black/5 hover:border-teal-500/50'
+                                  ? 'bg-[#0F8594] text-white border-[#0F8594] scale-110 shadow-lg' 
+                                  : 'bg-black/5 text-slate-600 border-black/5 hover:border-[#0F8594]/50'
                               }`}>
                                 {num}
                               </div>
@@ -359,7 +359,7 @@ export default function Feedback() {
 
                 {/* Additional Feedback */}
                 <div className="space-y-6">
-                  <h3 className="text-lg sm:text-xl font-serif font-bold text-teal-400 uppercase tracking-wider">Additional Feedback</h3>
+                  <h3 className="text-lg sm:text-xl font-serif font-bold text-[#0F8594]/75 uppercase tracking-wider">Additional Feedback</h3>
 
                   <div>
                     <p className="text-slate-800 mb-3 text-sm sm:text-base">
@@ -372,7 +372,7 @@ export default function Feedback() {
                       onChange={handleTextChange}
                       required
                       rows={4}
-                      className="w-full px-3 sm:px-4 py-3 bg-black/[0.03] border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 text-sm sm:text-base transition-all"
+                      className="w-full px-3 sm:px-4 py-3 bg-black/[0.03] border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F8594]/50 focus:border-[#0F8594]/50 text-sm sm:text-base transition-all"
                     />
                   </div>
 
@@ -386,7 +386,7 @@ export default function Feedback() {
                       value={responses.suggestions}
                       onChange={handleTextChange}
                       rows={4}
-                      className="w-full px-3 sm:px-4 py-3 bg-black/[0.03] border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 text-sm sm:text-base transition-all"
+                      className="w-full px-3 sm:px-4 py-3 bg-black/[0.03] border border-black/5 text-slate-900 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F8594]/50 focus:border-[#0F8594]/50 text-sm sm:text-base transition-all"
                     />
                   </div>
                 </div>
@@ -397,7 +397,7 @@ export default function Feedback() {
                   className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all ${
                     submitting
                       ? 'bg-black/10 text-slate-500 cursor-not-allowed'
-                      : 'bg-[#0d5239] hover:bg-[#0a4530] text-white hover:shadow-lg hover:shadow-black/20 transform hover:scale-105'
+                      : 'bg-[#0F8594] hover:bg-[#0a4530] text-white hover:shadow-lg hover:shadow-black/20 transform hover:scale-105'
                   }`}
                 >
                   {submitting ? (

@@ -9,6 +9,7 @@ import AdminDashboardLayout from '../../../components/layout/AdminDashboardLayou
 import { HomeIcon, UsersIcon, CalendarIcon, SessionIcon, ReportIcon, SettingsIcon } from '../../../components/admin/icons';
 import PatientDetailView from '../../../components/admin/PatientDetailView';
 import { adaptTherapist, adaptPatient } from '../../../components/admin/adapters';
+import { isAppointmentPast, parseAppointmentDateTime } from '../../../utils/derived';
 
 import DashboardHome from './tabs/DashboardHome';
 import PatientsTab from './tabs/PatientsTab';
@@ -37,11 +38,17 @@ export default function AnahatAdminPortal() {
   const [therapists, setTherapistsState] = useState([]);
   const [rawPatients, setRawPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [now, setNow] = useState(new Date());
   const [notifications, setNotifications] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [audit, setAudit] = useState([]);
   const [patientConcerns, setPatientConcerns] = useState({});
   const [selectedPatient, setSelectedPatient] = useState(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Real Postgres admin listing (ALL therapists regardless of approval
   // status) merged with the sign-up survey — this is the fix for therapists
@@ -106,8 +113,8 @@ export default function AnahatAdminPortal() {
   const approvedTherapists = therapists.filter((t) => t.approvalStatus === 'approved');
 
   const upcomingAppointments = appointments
-    .filter((a) => a.status === 'confirmed')
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    .filter((a) => a.status === 'confirmed' && !isAppointmentPast(a, now))
+    .sort((a, b) => parseAppointmentDateTime(a) - parseAppointmentDateTime(b));
 
   // Flips the real isApproved flag (PATCH /api/admin/therapists/:id/approve)
   // — the single source of truth checked everywhere else in the app.

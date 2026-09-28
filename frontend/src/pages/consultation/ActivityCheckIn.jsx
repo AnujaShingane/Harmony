@@ -5,7 +5,7 @@ import { getActivityPlan, getActivityLog, submitActivityCheckIn } from '../../se
 import { isActivityCheckInDoneToday, getActivityProgressSummary } from '../../utils/derived';
 import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 
 // Daily Activities: everything the therapist has assigned (across all
@@ -90,8 +90,8 @@ export default function ActivityCheckIn() {
                 const on = !!done[a.id];
                 return (
                   <li key={a.id}>
-                    <label className={`flex items-center gap-4 rounded-2xl border px-5 py-4 cursor-pointer transition-all ${on ? 'border-[#0d5239]/30' : 'border-black/5 hover:border-black/15'}`} style={{ background: on ? '#E6F0EA' : '#FBFAF6' }}>
-                      <input type="checkbox" checked={on} onChange={() => toggle(a.id)} className="w-5 h-5 accent-[#0d5239] shrink-0" />
+                    <label className={`flex items-center gap-4 rounded-2xl border px-5 py-4 cursor-pointer transition-all ${on ? 'border-[#0F8594]/30' : 'border-black/5 hover:border-black/15'}`} style={{ background: on ? '#E6F0EA' : '#FBFAF6' }}>
+                      <input type="checkbox" checked={on} onChange={() => toggle(a.id)} className="w-5 h-5 accent-[#0F8594] shrink-0" />
                       <span className={`flex-1 text-sm font-semibold ${on ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{a.text}</span>
                       {on && <span className="text-[11px] font-bold" style={{ color: TEAL }}>Done</span>}
                     </label>

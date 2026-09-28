@@ -181,13 +181,13 @@ export default function ConversationSettings({ isOpen, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-[#0d5239] p-6 text-white">
+        <div className="bg-[#0F8594] p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-4xl">⚙️</div>
               <div>
                 <h2 className="text-2xl font-bold">Conversation Settings</h2>
-                <p className="text-teal-100 text-sm mt-1">
+                <p className="text-[#0F8594]/12 text-sm mt-1">
                   Manage your conversation history and preferences
                 </p>
               </div>
@@ -208,7 +208,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <svg className="animate-spin h-12 w-12 mx-auto text-teal-600 mb-4" viewBox="0 0 24 24">
+                <svg className="animate-spin h-12 w-12 mx-auto text-[#0F8594] mb-4" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -238,7 +238,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                         onChange={(e) => setPreferences({...preferences, autoSave: e.target.checked})}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#0F8594]/45 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F8594]"></div>
                     </label>
                   </div>
 
@@ -255,7 +255,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                         onChange={(e) => setPreferences({...preferences, showHistory: e.target.checked})}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#0F8594]/45 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F8594]"></div>
                     </label>
                   </div>
 
@@ -272,7 +272,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                         onChange={(e) => setPreferences({...preferences, enableSummary: e.target.checked})}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#0F8594]/45 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F8594]"></div>
                     </label>
                   </div>
 
@@ -289,7 +289,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                         onChange={(e) => setPreferences({...preferences, promptToResume: e.target.checked})}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#0F8594]/45 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F8594]"></div>
                     </label>
                   </div>
 
@@ -299,7 +299,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                     <select
                       value={preferences.retentionDays}
                       onChange={(e) => setPreferences({...preferences, retentionDays: parseInt(e.target.value)})}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F8594]/75"
                     >
                       <option value={30}>30 days</option>
                       <option value={60}>60 days</option>
@@ -317,7 +317,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                   className={`mt-4 w-full py-3 rounded-lg font-semibold text-white transition-all ${
                     saving 
                       ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-[#0d5239] hover:bg-[#0a4530] shadow-lg'
+                      : 'bg-[#0F8594] hover:bg-[#0a4530] shadow-lg'
                   }`}
                 >
                   {saving ? 'Saving...' : '💾 Save Preferences'}
@@ -362,7 +362,7 @@ export default function ConversationSettings({ isOpen, onClose }) {
                           <div className="flex gap-2">
                             <button
                               onClick={() => exportSession(session.sessionId, 'json')}
-                              className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
+                              className="p-2 text-[#0F8594] hover:bg-[#0F8594]/8 rounded-lg transition-all"
                               title="Export as JSON"
                             >
                               📥

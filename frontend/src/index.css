@@ -1,8 +1,23 @@
 /* src/index.css */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Dancing+Script:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================
+   ANAHAT DESIGN TOKENS — single source of truth
+   One cyan, one orange, one charcoal. Every other
+   "shade" you see is this same color at different
+   opacity/brightness, never a different hue.
+   ============================================ */
+:root {
+  --anahat-cyan: 15, 133, 148;         /* #0F8594 — the ONE cyan used everywhere */
+  --anahat-cyan-strong: 10, 105, 118;  /* same hue, darker, for hover/active only */
+  --anahat-orange: 232, 93, 53;        /* #E85D35 */
+  --anahat-orange-strong: 200, 74, 40; /* #C84A28 */
+  --anahat-charcoal: 41, 45, 50;       /* #292D32 */
+  --anahat-cream: 253, 246, 238;       /* #FDF6EE */
+}
 
 * {
   margin: 0;
@@ -11,13 +26,19 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-.font-display { font-family: 'Manrope', sans-serif; }
+/* Playfair Display is the serif used in the Anahat wordmark — it is now the
+   display/heading font across the whole site (marketing pages, dashboard
+   headings, section titles). Dancing Script mirrors the "Transformations"
+   script under the logo and is reserved for that one accent use. */
+.font-display { font-family: 'Playfair Display', Georgia, serif; }
+.font-script { font-family: 'Dancing Script', cursive; }
+h1, h2, h3 { font-family: 'Playfair Display', Georgia, serif; }
 
 /* The page itself scrolls (browser scrollbar on the right). Dashboard
    layouts are h-screen and scroll their own content pane; every other page
@@ -27,6 +48,66 @@ body { overflow-y: auto; overflow-x: hidden; }
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+.portal-page-content > :first-child:not(.pt-8):not(.fixed):not(.portal-full-chat) {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin-inline: -2rem;
+  padding: 0.75rem 2rem 0.5rem;
+  background: #F6F4EC;
+}
+
+.portal-page-content > :first-child.pt-8 {
+  position: static;
+}
+
+.portal-page-content > :first-child.pt-8 > :first-child {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin-inline: -2rem;
+  padding: 0.75rem 2rem 0.5rem;
+  background: #F6F4EC;
+}
+
+.portal-page-filters {
+  position: sticky;
+  top: 4rem;
+  z-index: 29;
+  margin-inline: -2rem;
+  padding: 0.5rem 2rem;
+  background: #F6F4EC;
+}
+
+.portal-page-content [class*="rounded-2xl"],
+.portal-page-content [class*="rounded-3xl"],
+.portal-page-content [class*="rounded-[2rem]"],
+.portal-page-content [class*="rounded-[24px]"] {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.portal-page-content [class*="shadow-"] {
+  box-shadow: none !important;
+}
+
+.therapist-card-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .portal-page-content > :first-child:not(.pt-8):not(.fixed):not(.portal-full-chat),
+  .portal-page-content > :first-child.pt-8 > :first-child,
+  .portal-page-filters {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
 }
 /* Add these to your src/index.css file */
 
@@ -218,7 +299,7 @@ html {
 }
 
 .dashboard-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #0d5239 0%, #083b29 100%);
+  background: linear-gradient(180deg, #20AFC0 0%, #12707D 100%);
   border-radius: 5px;
   border: 2px solid #f9fafb;
 }

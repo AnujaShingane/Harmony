@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { pickFiveStatements, FEELING_SCALE } from '../constants/feelingScale';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 /**
  * Shared Before-Session / After-Session (and Relaxation) feedback form.
@@ -47,7 +47,7 @@ export default function SessionFeelingFeedback({ stage, seed, onSubmit, onSkip, 
             <select
               value={values[statement] || ''}
               onChange={(e) => setValues((v) => ({ ...v, [statement]: Number(e.target.value) }))}
-              className="w-full sm:w-52 px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm outline-none focus:border-[#0d5239]/40"
+              className="w-full sm:w-52 px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594]/40"
             >
               <option value="" disabled>Choose one…</option>
               {FEELING_SCALE.map((opt) => (

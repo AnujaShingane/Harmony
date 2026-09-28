@@ -8,11 +8,11 @@ import {
   getMoodEntries, getTherapyRecord, saveTherapyRecord, approveReport,
   getActivityPlan, setActivityPlan, getActivityLog, getDocuments, getListeningLog, getTrackHistory,
 } from '../../services/api';
-import { getProgressSummary, getActivityProgressSummary } from '../../utils/derived';
+import { getProgressSummary, getActivityProgressSummary, isAppointmentPast, parseAppointmentDateTime } from '../../utils/derived';
 import { PageShell, Card, Tabs, Badge, StatusBadge, PrimaryButton, TextAreaField, TextField, EmptyState } from '../../components/ui/Kit';
 import BackButton from '../../components/layout/BackButton';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const money = (n) => `\u20b9${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '\u2014');
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '\u2014');
@@ -135,16 +135,16 @@ export default function PatientProfile() {
   const ragas = new Set([...(listeningLog || []).map((l) => l.trackId || l.trackName || l.date), ...(trackHistory || []).flatMap((h) => h.trackIds || [])]).size;
 
   return (
-    <PageShell>
-      <div className="max-w-5xl mx-auto px-6 py-10 pb-20">
-        <div className="flex items-center justify-between mb-6">
+    <PageShell showBack={false}>
+      <div className="w-full space-y-4 px-4 py-4 pb-10 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-3">
           <BackButton to="/therapist" label="Back to patients" />
           <div className="flex gap-2">
-            <button onClick={() => navigate('/therapist')} className="px-4 py-2 rounded-lg text-xs font-bold border border-black/10 text-slate-700 hover:bg-black/[0.02]">Message</button>
+            <button onClick={() => navigate(`/therapist?tab=messages&patient=${encodeURIComponent(patientId)}`)} className="px-4 py-2 rounded-lg text-xs font-bold border border-black/10 text-slate-700 hover:bg-black/[0.02]">Message</button>
             <button
               onClick={() => {
                 // One entry point: the offline Nadika.ai session (created or resumed).
-                const appt = [...appointments].filter((a) => a.status === 'confirmed').sort((a, b) => new Date(`${a.date}T${a.startTime || '00:00'}`) - new Date(`${b.date}T${b.startTime || '00:00'}`))[0];
+                const appt = [...appointments].filter((a) => a.status === 'confirmed' && !isAppointmentPast(a)).sort((a, b) => parseAppointmentDateTime(a) - parseAppointmentDateTime(b))[0];
                 navigate(`/therapist/session/${patientId}?mode=offline${appt ? `&appointment=${appt.id}` : ''}`);
               }}
               className="px-4 py-2 rounded-lg text-xs font-bold text-white"
@@ -156,7 +156,7 @@ export default function PatientProfile() {
         </div>
 
         {/* Header */}
-        <div className="bg-white rounded-3xl border border-black/5 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
+        <div className="flex min-h-[112px] w-full flex-col items-start justify-between gap-4 border-b border-black/10 bg-white px-5 py-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full overflow-hidden bg-black/[0.04] flex items-center justify-center text-xl font-bold text-white shrink-0" style={{ background: TEAL }}>
               {patient?.avatarFileId ? <img src={`/api/profile/files/${patient.avatarFileId}`} alt={name} className="w-full h-full object-cover" /> : initialsOf(name)}
@@ -170,7 +170,7 @@ export default function PatientProfile() {
           <Badge tone={record.status === 'approved' ? 'emerald' : 'sunset'}>{record.status === 'approved' ? 'Report approved' : 'Report in draft'}</Badge>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-3 border-b border-black/10 pb-4 md:grid-cols-4">
           <Stat label="Total sessions" value={appointments.length} />
           <Stat label="Sessions attended" value={completed} />
           <Stat label="Reports filed" value={reports.length} />
@@ -179,7 +179,7 @@ export default function PatientProfile() {
 
         <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-4 space-y-4">
           {tab === 'overview' && (
             <>
               <Card>
@@ -231,7 +231,7 @@ export default function PatientProfile() {
                     const rs = reportsFor(a.id);
                     const summary = summaryFor(a);
                     return (
-                      <div key={a.id} className="bg-black/[0.03] rounded-2xl px-5 py-4">
+                      <div key={a.id} className="h-[190px] overflow-hidden border-b border-black/10 px-3 py-4">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                           <div>
                             <p className="text-sm font-bold text-slate-800">{a.date} at {a.startTime}</p>
@@ -242,12 +242,12 @@ export default function PatientProfile() {
                         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Session summary</p>
-                            <p className="text-sm text-slate-700">{summary || (a.status === 'completed' ? 'No summary recorded.' : 'Session not held yet.')}</p>
+                            <p className="text-sm text-slate-700" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{summary || (a.status === 'completed' ? 'No summary recorded.' : 'Session not held yet.')}</p>
                           </div>
                           <div>
                             <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Reports for this session</p>
                             {rs.length === 0 ? <p className="text-sm text-slate-400">None filed.</p> : rs.map((r) => (
-                              <p key={r.id} className="text-sm text-slate-700">• {r.report?.title || r.title || 'Report'} — {fmtDate(r.createdAt)}</p>
+                              <p key={r.id} className="truncate text-sm text-slate-700">• {r.report?.title || r.title || 'Report'} — {fmtDate(r.createdAt)}</p>
                             ))}
                           </div>
                         </div>
@@ -261,8 +261,8 @@ export default function PatientProfile() {
                   <h4 className="font-bold text-sm text-slate-700 mb-3">All reports ({reports.length})</h4>
                   <div className="space-y-2">
                     {reports.map((r) => (
-                      <div key={r.id} className="flex justify-between bg-black/[0.03] rounded-xl px-4 py-3 text-sm">
-                        <span className="font-bold">{r.report?.title || r.title || 'Therapy report'}</span>
+                      <div key={r.id} className="flex h-12 items-center justify-between gap-3 border-b border-black/10 px-3 text-sm">
+                        <span className="truncate font-bold">{r.report?.title || r.title || 'Therapy report'}</span>
                         <span className="text-slate-500">{fmtDate(r.createdAt)}</span>
                       </div>
                     ))}

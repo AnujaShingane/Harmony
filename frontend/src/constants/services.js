@@ -16,8 +16,9 @@ export const ANAHAT_SERVICES = [
 // Contact details shown in the site footer. Edit in one place.
 export const CONTACT = {
   email: 'anahattransformations@gmail.com',
-  phone: '+91 00000 00000',
+  phone: '+91 96573 17561',
   instagram: 'https://www.instagram.com/anahattransformations',
+  linkedin: 'https://www.linkedin.com/company/anahat-transformations/',
   facebook: 'https://www.facebook.com/anahattransformations',
   address: 'Pune, Maharashtra, India',
 };

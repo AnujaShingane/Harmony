@@ -194,9 +194,9 @@ export default function Dashboard() {
                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` }}>
                 </div>
                 
-                <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] p-8 shadow-2xl shadow-teal-500/20 relative z-10">
+                <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] p-8 shadow-2xl shadow-[#0F8594]/20 relative z-10">
                     <div className="flex items-center gap-4">
-                        <svg className="animate-spin h-8 w-8 text-teal-500" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-8 w-8 text-[#0F8594]" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -226,7 +226,7 @@ export default function Dashboard() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => window.location.reload()}
-                            className="flex-1 py-3 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
+                            className="flex-1 py-3 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-xl hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
                         >
                             Retry
                         </button>
@@ -309,18 +309,18 @@ export default function Dashboard() {
             </div>
 
             <div
-                className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-teal-300/10 via-teal-500/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
+                className="fixed w-[600px] h-[600px] rounded-full bg-gradient-radial from-[#0F8594]/45 via-[#0F8594]/5 to-transparent blur-[80px] pointer-events-none transition-transform duration-[400ms] ease-out z-0"
                 style={{ transform: `translate(${mousePos.x - 300}px, ${mousePos.y - 300}px)`, background: 'radial-gradient(circle at center, rgba(251, 191, 36, 0.1), rgba(168, 85, 247, 0.05), transparent)' }}
             />
 
             {/* Dashboard - Main Container */}
-            <div className="h-screen bg-[#FDF6EE] overflow-y-auto relative selection:bg-teal-500/30 sessions-scroll">
+            <div className="h-screen bg-[#FDF6EE] overflow-y-auto relative selection:bg-[#0F8594]/30 sessions-scroll">
                 <div className="max-w-7xl mx-auto p-6 pb-20 relative z-10">
                     {/* Header Card */}
-                    <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-6 mb-6">
+                    <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-6 mb-6">
                         <div className="flex justify-between items-center flex-wrap gap-4">
                             <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 bg-[#0d5239] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                                <div className="w-16 h-16 bg-[#0F8594] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                                     {(user?.first_name || user?.name)?.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
@@ -349,7 +349,7 @@ export default function Dashboard() {
                                     onClick={() => setActiveTab(tab.key)}
                                     className={`px-5 py-3 text-xs font-bold uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${
                                         activeTab === tab.key
-                                            ? 'border-teal-400 text-teal-600'
+                                            ? 'border-[#0F8594]/75 text-[#0F8594]'
                                             : 'border-transparent text-slate-500 hover:text-slate-700'
                                     }`}
                                 >
@@ -363,11 +363,11 @@ export default function Dashboard() {
                     {activeTab === 'overview' && (
                         <>
                             {/* Main Action Card */}
-                            <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-8 mb-6">
+                            <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-8 mb-6">
                                 <div className="text-center">
                                     <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                                        <div className="absolute inset-0 bg-teal-500 blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
-                                        <svg className="w-16 h-16 text-teal-800 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <div className="absolute inset-0 bg-[#0F8594] blur-xl opacity-60 rounded-full animate-pulse-slow"></div>
+                                        <svg className="w-16 h-16 text-[#0E5860] relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
                                         </svg>
                                     </div>
@@ -399,22 +399,22 @@ export default function Dashboard() {
                                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Completed</p>
                                 </div>
                                 <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-2xl p-5 text-center">
-                                    <p className="text-3xl font-serif font-bold text-teal-600">{incompleteSessions.length}</p>
+                                    <p className="text-3xl font-serif font-bold text-[#0F8594]">{incompleteSessions.length}</p>
                                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">In Progress</p>
                                 </div>
                                 <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-2xl p-5 text-center">
-                                    <p className="text-lg font-serif font-bold text-teal-600 truncate">{latestChakraFocus ? latestChakraFocus.name : '—'}</p>
+                                    <p className="text-lg font-serif font-bold text-[#0F8594] truncate">{latestChakraFocus ? latestChakraFocus.name : '—'}</p>
                                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Latest Focus</p>
                                 </div>
                             </div>
 
                             {/* Continue Your Journey */}
-                            <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-6 mb-6">
+                            <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-6 mb-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-xl font-serif font-bold text-slate-900">
                                         Continue Your Journey
                                     </h2>
-                                    <span className="bg-teal-500/20 text-teal-600 border border-teal-500/30 px-3 py-1 rounded-full text-sm font-semibold">
+                                    <span className="bg-[#0F8594]/20 text-[#0F8594] border border-[#0F8594]/30 px-3 py-1 rounded-full text-sm font-semibold">
                                         {incompleteSessions.length} Active
                                     </span>
                                 </div>
@@ -431,7 +431,7 @@ export default function Dashboard() {
                                         {incompleteSessions.map((session) => (
                                             <div
                                                 key={session.sessionId}
-                                                className="bg-white/70 border border-black/10 hover:border-teal-500/30 rounded-xl p-4 transition-all cursor-pointer"
+                                                className="bg-white/70 border border-black/10 hover:border-[#0F8594]/30 rounded-xl p-4 transition-all cursor-pointer"
                                                 onClick={() => handleResumeClick(session.sessionId)}
                                             >
                                                 <div className="flex justify-between items-start mb-2">
@@ -439,7 +439,7 @@ export default function Dashboard() {
                                                         {session.name}
                                                     </h3>
                                                     <button
-                                                        className="px-3 py-1 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-lg text-sm hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
+                                                        className="px-3 py-1 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-lg text-sm hover:shadow-lg hover:shadow-black/20 font-semibold transition-all"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleResumeClick(session.sessionId);
@@ -474,7 +474,7 @@ export default function Dashboard() {
                                 <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-emerald-500/10 p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h2 className="text-xl font-serif font-bold text-slate-900">Recent Reports</h2>
-                                        <button onClick={() => setActiveTab('history')} className="text-xs font-bold uppercase tracking-widest text-teal-400 hover:text-teal-600 transition-colors">
+                                        <button onClick={() => setActiveTab('history')} className="text-xs font-bold uppercase tracking-widest text-[#0F8594]/75 hover:text-[#0F8594] transition-colors">
                                             View All →
                                         </button>
                                     </div>
@@ -485,7 +485,7 @@ export default function Dashboard() {
                                                 <p className="text-xs text-slate-500 mb-3">{new Date(session.created_at).toLocaleDateString()}</p>
                                                 <button
                                                     onClick={() => navigate(`/report/${session.session_id}`)}
-                                                    className="text-xs font-bold uppercase tracking-widest text-teal-600 hover:text-teal-700 transition-colors"
+                                                    className="text-xs font-bold uppercase tracking-widest text-[#0F8594] hover:text-[#0A6976] transition-colors"
                                                 >
                                                     View Report →
                                                 </button>
@@ -541,13 +541,13 @@ export default function Dashboard() {
                                             </div>
                                             <button
                                                 onClick={() => navigate(`/report/${session.session_id}`)}
-                                                className="w-full mt-3 px-4 py-2 bg-[#0d5239] hover:bg-[#0a4530] text-white rounded-lg hover:shadow-lg hover:shadow-black/20 transition-all font-semibold text-sm"
+                                                className="w-full mt-3 px-4 py-2 bg-[#0F8594] hover:bg-[#0a4530] text-white rounded-lg hover:shadow-lg hover:shadow-black/20 transition-all font-semibold text-sm"
                                             >
                                                 View Report
                                             </button>
                                             <button
                                                 onClick={() => navigate(`/feedback/${session.session_id}`)}
-                                                className="w-full mt-2 px-4 py-2 bg-teal-500/20 border border-teal-500/30 text-teal-600 rounded-lg hover:bg-teal-500/30 transition-all font-semibold text-sm"
+                                                className="w-full mt-2 px-4 py-2 bg-[#0F8594]/20 border border-[#0F8594]/30 text-[#0F8594] rounded-lg hover:bg-[#0F8594]/30 transition-all font-semibold text-sm"
                                             >
                                                 Give Feedback
                                             </button>
@@ -560,7 +560,7 @@ export default function Dashboard() {
 
                     {/* ============ PROGRESS TAB ============ */}
                     {activeTab === 'progress' && (
-                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-6">
+                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-6">
                             <h2 className="text-xl font-serif font-bold text-slate-900 mb-1">Chakra Progress Across Assessments</h2>
                             <p className="text-sm text-slate-600 mb-6">Tracked from every completed assessment, oldest to most recent.</p>
 
@@ -577,7 +577,7 @@ export default function Dashboard() {
                                 </div>
                             ) : trends.length === 1 ? (
                                 <>
-                                    <div className="bg-teal-500/10 border border-teal-500/20 text-teal-700 text-sm rounded-xl p-4 mb-6">
+                                    <div className="bg-[#0F8594]/10 border border-[#0F8594]/20 text-[#0A6976] text-sm rounded-xl p-4 mb-6">
                                         This is your first tracked assessment. Complete another to see how things shift over time.
                                     </div>
                                     <ChakraTrendChart trends={trends} />
@@ -601,7 +601,7 @@ export default function Dashboard() {
 
                     {/* ============ RECOMMENDATIONS TAB ============ */}
                     {activeTab === 'recommendations' && (
-                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-6">
+                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-6">
                             <h2 className="text-xl font-serif font-bold text-slate-900 mb-1">Your Latest Recommendations</h2>
                             <p className="text-sm text-slate-600 mb-6">From your most recently completed assessment.</p>
 
@@ -611,7 +611,7 @@ export default function Dashboard() {
                                 </div>
                             ) : latestReportLoading ? (
                                 <div className="flex items-center gap-3 text-slate-600 py-16 justify-center">
-                                    <svg className="animate-spin h-5 w-5 text-teal-400" viewBox="0 0 24 24">
+                                    <svg className="animate-spin h-5 w-5 text-[#0F8594]/75" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
@@ -620,8 +620,8 @@ export default function Dashboard() {
                             ) : latestReport?.report ? (
                                 <div className="space-y-6">
                                     {latestReport.report.userPrescription && (
-                                        <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-5">
-                                            <h3 className="text-sm font-bold uppercase tracking-widest text-teal-600 mb-3">Personalized Prescription</h3>
+                                        <div className="bg-[#0F8594]/10 border border-[#0F8594]/20 rounded-xl p-5">
+                                            <h3 className="text-sm font-bold uppercase tracking-widest text-[#0F8594] mb-3">Personalized Prescription</h3>
                                             <pre className="text-slate-700 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-y-auto sessions-scroll pr-2">
                                                 {latestReport.report.userPrescription}
                                             </pre>
@@ -629,8 +629,8 @@ export default function Dashboard() {
                                     )}
 
                                     {latestReport.report.raga_recommendations?.success && latestReport.report.raga_recommendations.recommendations && (
-                                        <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-5">
-                                            <h3 className="text-sm font-bold uppercase tracking-widest text-teal-600 mb-4">Music Therapy & Listening Schedule</h3>
+                                        <div className="bg-[#0F8594]/10 border border-[#0F8594]/20 rounded-xl p-5">
+                                            <h3 className="text-sm font-bold uppercase tracking-widest text-[#0F8594] mb-4">Music Therapy & Listening Schedule</h3>
                                             <div className="space-y-4">
                                                 {latestReport.report.raga_recommendations.recommendations.map((rec, i) => (
                                                     <div key={i}>
@@ -644,7 +644,7 @@ export default function Dashboard() {
                                                                         <div className="flex flex-wrap gap-2 mt-2">
                                                                             {Object.entries(raga.music_links).map(([type, link]) => (
                                                                                 <a key={type} href={link} target="_blank" rel="noopener noreferrer"
-                                                                                   className="text-xs px-2 py-1 bg-teal-500/20 text-teal-600 rounded hover:bg-teal-500/30 transition-all">
+                                                                                   className="text-xs px-2 py-1 bg-[#0F8594]/20 text-[#0F8594] rounded hover:bg-[#0F8594]/30 transition-all">
                                                                                     {type}
                                                                                 </a>
                                                                             ))}
@@ -661,7 +661,7 @@ export default function Dashboard() {
 
                                     <button
                                         onClick={() => navigate(`/report/${latestReport.session.sessionId}`)}
-                                        className="text-xs font-bold uppercase tracking-widest text-teal-400 hover:text-teal-600 transition-colors"
+                                        className="text-xs font-bold uppercase tracking-widest text-[#0F8594]/75 hover:text-[#0F8594] transition-colors"
                                     >
                                         View Full Report →
                                     </button>
@@ -676,7 +676,7 @@ export default function Dashboard() {
 
                     {/* ============ PROFILE TAB ============ */}
                     {activeTab === 'profile' && (
-                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-teal-500/10 p-6">
+                        <div className="bg-white/80 backdrop-blur-xl border border-black/10 rounded-[2rem] shadow-2xl shadow-[#0F8594]/10 p-6">
                             <h2 className="text-xl font-serif font-bold text-slate-900 mb-6">Account</h2>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -709,7 +709,7 @@ export default function Dashboard() {
                                     className={`px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
                                         exporting
                                             ? 'bg-slate-200 text-slate-500 cursor-wait'
-                                            : 'bg-[#0d5239] hover:bg-[#0a4530] text-white hover:shadow-lg hover:shadow-black/20'
+                                            : 'bg-[#0F8594] hover:bg-[#0a4530] text-white hover:shadow-lg hover:shadow-black/20'
                                     }`}
                                 >
                                     {exporting ? 'Preparing...' : 'Download'}

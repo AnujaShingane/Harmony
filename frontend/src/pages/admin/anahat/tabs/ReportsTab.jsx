@@ -32,7 +32,7 @@ export default function ReportsTab({ patients, getReportHistory }) {
         {allReports.length === 0 ? (
           <EmptyState title="No reports yet" subtitle="Reports approved by therapists after a session will appear here." />
         ) : (
-          <div className="space-y-2 max-h-[560px] overflow-y-auto thin-scroll">
+          <div className="space-y-2">
             {allReports.map((r) => (
               <div key={r.id} className="bg-black/[0.03] rounded-xl px-4 py-3">
                 <div className="flex items-center justify-between mb-1">

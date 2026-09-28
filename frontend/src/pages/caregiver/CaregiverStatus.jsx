@@ -65,7 +65,7 @@ export default function CaregiverStatus() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#FDF6EE] text-slate-900">
-                <div className="w-10 h-10 border-2 border-teal-500/40 border-t-teal-400 rounded-full animate-spin"></div>
+                <div className="w-10 h-10 border-2 border-[#0F8594]/40 border-t-teal-400 rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -78,7 +78,7 @@ export default function CaregiverStatus() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#FDF6EE] font-sans text-slate-900 p-4 relative overflow-hidden">
             <div className="absolute inset-0 z-0">
-                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-300/20 blur-[120px] animate-pulse"></div>
+                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0F8594]/45 blur-[120px] animate-pulse"></div>
             </div>
 
             <div className="relative z-10 max-w-md w-full text-center space-y-6 bg-white/80 backdrop-blur-2xl border border-black/10 rounded-[2.5rem] p-12">
@@ -105,8 +105,8 @@ export default function CaregiverStatus() {
                     </>
                 ) : (
                     <>
-                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-teal-500/20 to-teal-500/20 border border-teal-500/30 rounded-full flex items-center justify-center">
-                            <svg className="w-10 h-10 text-teal-600 animate-pulse-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#0F8594]/20 to-[#0F8594]/20 border border-[#0F8594]/30 rounded-full flex items-center justify-center">
+                            <svg className="w-10 h-10 text-[#0F8594] animate-pulse-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>

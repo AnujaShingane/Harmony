@@ -34,8 +34,8 @@ class GeminiProvider(LLMProvider):
         client=None,
         model: str | None = None,
         api_key: str | None = None,
-        request_timeout: float = 25.0,
-        total_timeout: float = 60.0,
+        request_timeout: float = 90.0,
+        total_timeout: float = 180.0,
         max_retries: int = 1,
         backoff_base: float = 0.5,
         backoff_max: float = 8.0,
@@ -296,8 +296,8 @@ class GeminiProvider(LLMProvider):
                                 SemanticExtraction
                             ),
                             http_options=types.HttpOptions(
-                                timeout=request_timeout(
-                                    self.request_timeout
+                                timeout=int(
+                                    request_timeout(self.request_timeout) * 1000
                                 )
                             ),
                         ),

@@ -27,9 +27,9 @@ function Row({ title, subtitle, children }) {
 
 function Field({ label, value }) {
   return (
-    <div>
+    <div className="min-h-[3.5rem] overflow-hidden">
       <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{label}</p>
-      <p className="text-sm text-slate-800 mt-0.5">{value || '—'}</p>
+      <p className="mt-0.5 h-8 overflow-hidden break-words text-sm text-slate-800" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{value || '—'}</p>
     </div>
   );
 }
@@ -62,16 +62,16 @@ export default function SettingsTab({ demographics = {}, prefs, onSavePrefs, onC
   };
 
   return (
-    <div className="pt-8 space-y-6 max-w-2xl">
+    <div className="w-full space-y-5 pt-8">
       <div>
         <h1 className="font-serif font-bold text-2xl text-slate-900">Settings</h1>
         <p className="text-slate-500 text-sm mt-1">Account, notifications, and privacy.</p>
       </div>
 
-      <div className="bg-white rounded-3xl border border-black/5 p-6">
+      <div className="w-full border-b border-black/10 bg-white p-5 md:p-6">
         <h3 className="font-serif font-bold text-lg mb-1">Your details</h3>
         <p className="text-xs text-slate-500 mb-5">The information you gave when you registered. Patients see the professional parts on your booking card.</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
           <Field label="Full name" value={demographics.name} />
           <Field label="Email" value={demographics.email} />
           <Field label="Contact number" value={demographics.phone} />
@@ -80,13 +80,13 @@ export default function SettingsTab({ demographics = {}, prefs, onSavePrefs, onC
           <Field label="Years of experience" value={demographics.experienceYears != null ? `${demographics.experienceYears} years` : ''} />
           <Field label="Qualification" value={demographics.qualification} />
           <Field label="Session fee" value={demographics.fee != null && demographics.fee !== '' ? `₹${demographics.fee}` : ''} />
-          <div className="col-span-2"><Field label="Address" value={demographics.address} /></div>
-          <div className="col-span-2 md:col-span-3"><Field label="Specialization" value={demographics.specialization} /></div>
-          {demographics.bio && <div className="col-span-2 md:col-span-3"><Field label="Bio" value={demographics.bio} /></div>}
+          <div className="col-span-2 xl:col-span-3"><Field label="Address" value={demographics.address} /></div>
+          <div className="col-span-2 xl:col-span-3"><Field label="Specialization" value={demographics.specialization} /></div>
+          {demographics.bio && <div className="col-span-2 xl:col-span-6"><Field label="Bio" value={demographics.bio} /></div>}
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-black/5 p-6">
+      <div className="w-full border-b border-black/10 bg-white p-5 md:p-6">
         <h3 className="font-serif font-bold text-lg mb-1">Password</h3>
         <p className="text-xs text-slate-500 mb-4">Update your account password.</p>
         <div className="space-y-3">
@@ -103,7 +103,7 @@ export default function SettingsTab({ demographics = {}, prefs, onSavePrefs, onC
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-black/5 p-6">
+      <div className="w-full border-b border-black/10 bg-white p-5 md:p-6">
         <h3 className="font-serif font-bold text-lg mb-1">Notifications</h3>
         <p className="text-xs text-slate-500 mb-2">Choose what you're notified about.</p>
         <Row title="Appointment requests" subtitle="New booking requests from patients">
@@ -117,7 +117,7 @@ export default function SettingsTab({ demographics = {}, prefs, onSavePrefs, onC
         </Row>
       </div>
 
-      <div className="bg-white rounded-3xl border border-black/5 p-6">
+      <div className="w-full border-b border-black/10 bg-white p-5 md:p-6">
         <h3 className="font-serif font-bold text-lg mb-1">Privacy</h3>
         <p className="text-xs text-slate-500 mb-2">Control what patients can see about you.</p>
         <Row title="Show profile to prospective patients" subtitle="Your name, specialization, and bio">

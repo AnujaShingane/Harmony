@@ -33,21 +33,21 @@ export default function ProfileTab({
   const Field = ({ label, k, value, textarea, type }) => (
     <div className="py-3 grid grid-cols-[150px_1fr] gap-3 items-start">
       <dt className="text-xs font-semibold text-slate-500 pt-1">{label}</dt>
-      <dd className="text-sm text-slate-800">
+      <dd className={`overflow-hidden break-words text-sm text-slate-800 ${editing && textarea ? 'h-24' : 'h-11'}`}>
         {editing && k ? (
           textarea
-            ? <textarea rows={3} value={form[k]} onChange={set(k)} className="w-full px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm resize-none" />
-            : <input type={type || 'text'} value={form[k]} onChange={set(k)} className="w-full px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm" />
-        ) : (value || form[k] || <span className="text-slate-400">Not provided</span>)}
+            ? <textarea rows={3} value={form[k]} onChange={set(k)} className="h-24 w-full resize-none overflow-y-auto rounded-md border border-black/10 bg-black/[0.03] px-3 py-2 text-sm outline-none focus:border-[#0F8594] focus:ring-2 focus:ring-[#0F8594]/20" />
+            : <input type={type || 'text'} value={form[k]} onChange={set(k)} className="w-full px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm outline-none focus:border-[#0F8594] focus:ring-2 focus:ring-[#0F8594]/20" />
+        ) : <span className="block h-full overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{value || form[k] || <span className="text-slate-400">Not provided</span>}</span>}
       </dd>
     </div>
   );
 
   return (
-    <div className="pt-8 space-y-6 max-w-4xl">
-      <div className="td-animate-in bg-white rounded-3xl border border-black/5 overflow-hidden">
+    <div className="w-full space-y-5 pt-8">
+      <div className="td-animate-in min-h-[168px] w-full overflow-hidden border-b border-black/10 bg-white">
         <div className="h-24" style={{ background: 'linear-gradient(100deg, #D7E8BE 0%, #EDE9D8 45%, #F5D7B0 90%)' }} />
-        <div className="px-6 md:px-8 pb-6 -mt-10 flex flex-col md:flex-row md:items-end gap-5">
+        <div className="px-6 md:px-8 pb-5 -mt-10 flex min-h-[112px] flex-col md:flex-row md:items-end gap-5">
           <div className="relative">
             <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg overflow-hidden flex items-center justify-center text-2xl font-bold text-white" style={{ background: SAGE }}>
               {avatarUrl ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" /> : initialsOf(name)}
@@ -69,7 +69,7 @@ export default function ProfileTab({
                 <PrimaryButton onClick={save} className="!py-2 !px-4 text-xs">Save</PrimaryButton>
               </>
             ) : (
-              <button onClick={() => setEditing(true)} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: SAGE_DARK }}>Edit details</button>
+              <button onClick={() => setEditing(true)} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: '#0F8594' }}>Edit details</button>
             )}
           </div>
         </div>
@@ -77,8 +77,8 @@ export default function ProfileTab({
 
       {saved && <p className="text-sm font-semibold" style={{ color: SAGE_DARK }}>Profile saved.</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="td-animate-in bg-white rounded-3xl border border-black/5 p-6 md:p-7">
+      <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="td-animate-in h-[320px] overflow-hidden border-b border-black/10 bg-white p-5 md:p-6">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Practice</h2>
           <dl className="divide-y divide-black/5">
             <Field label="Specialization" k="specialty" />
@@ -87,7 +87,7 @@ export default function ProfileTab({
             <Field label="Session fee (₹)" k="sessionFee" type="number" />
           </dl>
         </div>
-        <div className="td-animate-in bg-white rounded-3xl border border-black/5 p-6 md:p-7">
+        <div className="td-animate-in h-[320px] overflow-hidden border-b border-black/10 bg-white p-5 md:p-6">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Contact</h2>
           <dl className="divide-y divide-black/5">
             <Field label="Email" k="contactEmail" />
@@ -95,7 +95,7 @@ export default function ProfileTab({
             <Field label="Address" value={address} />
           </dl>
         </div>
-        <div className="td-animate-in bg-white rounded-3xl border border-black/5 p-6 md:p-7 md:col-span-2">
+        <div className="td-animate-in h-[200px] overflow-hidden border-b border-black/10 bg-white p-5 md:col-span-2 md:p-6">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">About</h2>
           <dl>
             <Field label="Short bio" k="bio" textarea />

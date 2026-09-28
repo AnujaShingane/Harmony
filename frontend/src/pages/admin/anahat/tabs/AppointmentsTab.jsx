@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AppointmentCard from '../../../../components/admin/AppointmentCard';
 import { EmptyState } from '../../../../components/ui/Kit';
+import { isAppointmentPast, parseAppointmentDateTime } from '../../../../utils/derived';
 
 const FILTERS = [
   { key: 'upcoming', label: 'Upcoming' },
+  { key: 'past', label: 'Past' },
   { key: 'completed', label: 'Completed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
@@ -14,11 +16,19 @@ const FILTERS = [
 // (updateAppointmentStatus) if needed.
 export default function AppointmentsTab({ appointments, onUpdate }) {
   const [filter, setFilter] = useState('upcoming');
+  const [now, setNow] = useState(new Date());
 
-  const upcoming = appointments.filter((a) => a.status === 'confirmed');
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const active = appointments.filter((a) => a.status === 'confirmed');
+  const upcoming = active.filter((a) => !isAppointmentPast(a, now)).sort((a, b) => parseAppointmentDateTime(a) - parseAppointmentDateTime(b));
+  const past = active.filter((a) => isAppointmentPast(a, now)).sort((a, b) => parseAppointmentDateTime(b) - parseAppointmentDateTime(a));
   const completed = appointments.filter((a) => a.status === 'completed');
   const cancelled = appointments.filter((a) => a.status === 'cancelled');
-  const list = { upcoming, completed, cancelled }[filter];
+  const list = { upcoming, past, completed, cancelled }[filter];
 
   return (
     <div className="pt-8 space-y-6">
@@ -27,7 +37,7 @@ export default function AppointmentsTab({ appointments, onUpdate }) {
         <p className="text-slate-500 text-sm mt-1">Monitor bookings across every therapist and patient.</p>
       </div>
 
-      <div className="flex gap-1 bg-black/[0.04] rounded-2xl p-1 w-fit">
+      <div className="portal-page-filters flex gap-1 bg-black/[0.04] rounded-2xl p-1 w-fit">
         {FILTERS.map((f) => (
           <button
             key={f.key}
@@ -46,8 +56,8 @@ export default function AppointmentsTab({ appointments, onUpdate }) {
           <div>
             {list.map((a) => (
               <div key={a.id} className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0"><AppointmentCard appointment={a} /></div>
-                {a.status === 'confirmed' && (
+                <div className="flex-1 min-w-0"><AppointmentCard appointment={filter === 'past' ? { ...a, status: 'past' } : a} /></div>
+                {filter === 'upcoming' && a.status === 'confirmed' && (
                   <button onClick={() => onUpdate(a.id, { status: 'cancelled' })} className="text-xs font-bold text-red-500 shrink-0">Cancel</button>
                 )}
               </div>

@@ -4,7 +4,7 @@ import { anahat } from '../../services/api';
 import { PageShell, Card, Badge } from '../../components/ui/Kit';
 import BackButton from '../../components/layout/BackButton';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const CREAM = '#F6F4EC';
 const fmt = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
@@ -34,7 +34,7 @@ export default function SessionEndedSummary({ session, patientId, patientName, c
   const tone = (st = '') => (/^BALANCED/.test(st) ? 'emerald' : /UNRESOLVED/.test(st) ? 'amber' : /IMBALANCED/.test(st) ? 'sunset' : 'slate');
 
   return (
-    <PageShell>
+    <PageShell showBack={false}>
       <div className="max-w-5xl mx-auto px-6 py-8 pb-24">
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <BackButton to={`/therapist/patient/${patientId}`} label="Back to patient record" />
@@ -60,7 +60,7 @@ export default function SessionEndedSummary({ session, patientId, patientName, c
           <Card>
             <h2 className="font-serif font-bold text-lg mb-4">Conversation</h2>
             {msgs.length === 0 ? <p className="text-sm text-slate-400">No messages were exchanged.</p> : (
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="space-y-2">
                 {msgs.map((m, i) => (
                   <div key={m.id || i} className={`flex ${m.from === 'therapist' ? 'justify-end' : 'justify-start'}`}>
                     <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm" style={{ background: m.from === 'therapist' ? '#E6F0EA' : '#FBFAF6', border: '1px solid rgba(0,0,0,0.05)' }}>

@@ -27,7 +27,7 @@ export default function SessionHistoryTab({ sessions, hasReport, onOpenReport, o
       </div>
 
       {patientNames.length > 1 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="portal-page-filters flex flex-wrap gap-2">
           {patientNames.map((name) => (
             <button
               key={name}

@@ -1,6 +1,6 @@
 import { DOS, DONTS } from '../constants/consent';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 // Two-column Do's & Don'ts panel, reused on the consent page and at the top
 // of the Music Library.

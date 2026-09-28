@@ -10,7 +10,7 @@ function Toggle({ checked, onChange }) {
         <button
             onClick={() => onChange(!checked)}
             className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${checked ? '' : 'bg-slate-200'}`}
-            style={checked ? { background: '#0d5239' } : undefined}
+            style={checked ? { background: '#0F8594' } : undefined}
         >
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
         </button>
@@ -120,7 +120,7 @@ export default function Settings() {
                     onClick={savePreferences}
                     disabled={saving}
                     className="px-6 py-2.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-all disabled:opacity-50"
-                    style={{ background: '#0d5239' }}
+                    style={{ background: '#0F8594' }}
                 >
                     {saving ? 'Saving…' : savedAt ? 'Saved ✓' : 'Save Changes'}
                 </button>

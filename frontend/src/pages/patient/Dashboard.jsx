@@ -7,7 +7,7 @@ import { Card, PrimaryButton, OutlineButton, StatusBadge, CardSkeleton, TEAL, LI
 import {
   getMyAppointmentsForPatient,
 } from '../../services/api';
-import { canJoinAppointment, getAppointmentSessionWindow } from '../../utils/derived';
+import { canJoinAppointment, getAppointmentSessionWindow, isAppointmentPast, parseAppointmentDateTime } from '../../utils/derived';
 import { formatISTDateTime, formatISTTime } from '../../utils/time';
 import { getSubscriptionStatus } from '../../services/api';
 import PremiumUpsellModal from '../../components/PremiumUpsellModal';
@@ -72,9 +72,9 @@ export default function Dashboard() {
   const upcoming = useMemo(() => {
     if (!appointments) return null;
     return appointments
-      .filter((a) => a.status !== 'cancelled' && a.status !== 'completed')
-      .sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0))[0] || null;
-  }, [appointments]);
+      .filter((a) => a.status !== 'cancelled' && a.status !== 'completed' && !isAppointmentPast(a, now))
+      .sort((a, b) => parseAppointmentDateTime(a) - parseAppointmentDateTime(b))[0] || null;
+  }, [appointments, now]);
 
   // Care-journey milestones — derived purely from the patient's real
   // appointment history, never invented.
@@ -121,16 +121,16 @@ export default function Dashboard() {
       {showPremiumUpsell && <PremiumUpsellModal userId={user.id} onClose={() => setShowPremiumUpsell(false)} />}
       {/* Welcome card */}
       <div
-        className="rounded-3xl p-8 md:p-10 mb-6 relative overflow-hidden flex items-center justify-between gap-6 flex-wrap"
+        className="rounded-3xl px-6 py-4 md:px-7 md:py-5 mb-6 relative overflow-hidden flex items-center justify-between gap-6 flex-wrap"
         style={{ background: 'linear-gradient(100deg, #D7E8BE 0%, #EDE9D8 45%, #F5D7B0 90%)' }}
       >
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: TEAL }}>Patient Portal</p>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Welcome, {displayName}</h1>
-          <p className="text-slate-600 mt-2 text-sm md:text-base italic">{greeting()}</p>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: TEAL }}>Patient Portal</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Welcome, {displayName}</h1>
+          <p className="text-slate-600 mt-1 text-sm italic">{greeting()}</p>
         </div>
-        <div className="w-20 h-20 rounded-full flex items-center justify-center shrink-0 bg-white/50">
-          <svg className="w-10 h-10" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-white/50">
+          <svg className="w-6 h-6" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M12 21c-4.5-2.5-8-6-8-10.5A5.5 5.5 0 0112 6a5.5 5.5 0 018 4.5C20 15 16.5 18.5 12 21z" />
           </svg>
         </div>

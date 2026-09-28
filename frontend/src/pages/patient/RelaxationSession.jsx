@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePatientSession } from '../../hooks/usePatientSession';
 import PatientDashboardLayout from '../../components/layout/PatientDashboardLayout';
 import { PortalLoading, PortalError } from '../../components/layout/PortalStatus';
 import { saveRelaxationSession, getSessionFeedback, submitSessionFeedback, getRelaxationPaymentStatus } from '../../services/api';
 import { useRaagPlayer } from '../../hooks/useRaagPlayer';
 import SessionFeelingFeedback from '../../components/SessionFeelingFeedback';
-import { Navigate } from 'react-router-dom';
+import { RELAXATION_ARTWORK_BY_CONCERN } from '../../constants/relaxationArtwork';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
+const ORANGE = '#F36F36';
 
 // Every reason a person might need to unwind, each mapped to the raags that
 // traditionally address it. Tracks are not uploaded yet, so the player is a
@@ -28,6 +30,8 @@ export const CONCERNS = [
   { key: 'grief', label: 'Grief' },
   { key: 'focus', label: 'Lack of focus' },
 ];
+
+const newRelaxationSessionId = () => window.crypto?.randomUUID?.() || `relax-${Date.now()}-${Math.random()}`;
 
 const RAAGS = {
   anger: [
@@ -117,7 +121,10 @@ const CONCERN_TERMS = {
 
 export default function RelaxationSession() {
   const { user, loading, error, reload, logout } = usePatientSession();
-  const [concern, setConcern] = useState('');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const concernParam = searchParams.get('concern');
+  const [concern, setConcern] = useState(() => CONCERNS.some((item) => item.key === concernParam) ? concernParam : '');
   const [practiceInput, setPracticeInput] = useState('');
   const [searchMode, setSearchMode] = useState(false);
   const [matchedConcern, setMatchedConcern] = useState('');
@@ -131,14 +138,25 @@ export default function RelaxationSession() {
   const [beforeFeelingDone, setBeforeFeelingDone] = useState(null); // null = unknown yet
   const [afterFeelingDone, setAfterFeelingDone] = useState(false);
   const [feelingSaving, setFeelingSaving] = useState(false);
-  const [paidToday, setPaidToday] = useState(null); // null = unknown yet
+  const [sessionId, setSessionId] = useState(() => searchParams.get('sessionId') || newRelaxationSessionId());
+  const [paidForSession, setPaidForSession] = useState(null);
+  const autoplayAfterPayment = useRef(searchParams.get('play') === '1');
 
   useEffect(() => {
     if (!user?.id) return;
-    getRelaxationPaymentStatus(user.id).then((s) => setPaidToday(!!s.paid)).catch(() => setPaidToday(false));
-  }, [user?.id]);
+    let cancelled = false;
+    getRelaxationPaymentStatus(user.id, sessionId)
+      .then((status) => { if (!cancelled) setPaidForSession(!!status.paid); })
+      .catch(() => { if (!cancelled) setPaidForSession(false); });
+    return () => { cancelled = true; };
+  }, [user?.id, sessionId]);
 
-  const raags = useMemo(() => searchMode ? (matchedConcern ? RAAGS[matchedConcern] || [] : []) : (concern ? RAAGS[concern] || [] : []), [concern, matchedConcern, searchMode]);
+  const allRaags = useMemo(() => [...new Map(Object.values(RAAGS).flat().map((track) => [track.name, track])).values()], []);
+  const raags = useMemo(() => {
+    const focused = searchMode ? (matchedConcern ? RAAGS[matchedConcern] || [] : []) : (concern ? RAAGS[concern] || [] : []);
+    const focusedNames = new Set(focused.map((track) => track.name));
+    return [...focused, ...allRaags.filter((track) => !focusedNames.has(track.name))].slice(0, 5);
+  }, [allRaags, concern, matchedConcern, searchMode]);
   const playerTracks = raags.length ? raags : RAAGS.anger;
   const player = useRaagPlayer(playerTracks);
   const current = playerTracks[Math.min(player.index, playerTracks.length - 1)];
@@ -147,14 +165,51 @@ export default function RelaxationSession() {
     : CONCERNS.find((c) => c.key === concern)?.label || 'Choose a concern';
   const hasFocus = searchMode ? Boolean(matchedConcern) : Boolean(concern);
   const progress = player.duration ? player.elapsed / player.duration : 0;
+  const imageConcern = searchMode ? matchedConcern : concern;
+  const concernImage = RELAXATION_ARTWORK_BY_CONCERN[imageConcern] || '/assets/meditation-glow.jpg';
+
+  useEffect(() => {
+    if (CONCERNS.some((item) => item.key === concernParam) && concernParam !== concern) {
+      setSessionId(newRelaxationSessionId());
+      setPaidForSession(null);
+      player.select(0, false);
+      setConcern(concernParam);
+      setSearchMode(false);
+      setMatchedConcern('');
+    }
+  }, [concernParam, concern]);
+
+  const requestPlayback = () => {
+    if (player.playing || paidForSession) { player.toggle(); return; }
+    openPaymentPage(player.index);
+  };
+
+  const openPaymentPage = (trackIndex) => {
+    const key = searchMode ? matchedConcern : concern;
+    const params = new URLSearchParams({ sessionId, concern: key || '', track: String(trackIndex) });
+    navigate(`/relaxation/payment?${params.toString()}`);
+  };
+
+  const selectTrack = (index) => {
+    if (paidForSession) {
+      player.select(index);
+      return;
+    }
+    player.setIndex(index);
+    player.setElapsed(0);
+    openPaymentPage(index);
+  };
 
   const chooseConcern = (key) => {
+    setSessionId(newRelaxationSessionId());
+    setPaidForSession(null);
     setConcern(key);
+    setSearchParams({ concern: key });
     setSearchMode(false);
     setMatchedConcern('');
     setMatchedRequest('');
     setSearchError('');
-    player.select(0);
+    player.select(0, false);
     setPickerOpen(false);
     if (user?.id) saveRelaxationSession(user.id, { reason: key, transcript: [] }).catch(() => {});
   };
@@ -171,8 +226,11 @@ export default function RelaxationSession() {
     setMatchedRequest(practiceInput.trim());
     setSearchError(best ? '' : 'No focused practice matched that wording. Try a feeling, goal, or concern such as sleep, stress, or focus.');
     if (best) {
+      setSessionId(newRelaxationSessionId());
+      setPaidForSession(null);
       setConcern(best);
-      player.setIndex(0); player.setElapsed(0);
+      setSearchParams({ concern: best });
+      player.select(0, false);
       if (user?.id) saveRelaxationSession(user.id, { reason: best, transcript: [practiceInput.trim()] }).catch(() => {});
     }
   };
@@ -202,6 +260,17 @@ export default function RelaxationSession() {
       .catch(() => setBeforeFeelingDone(true)); // fail open rather than block listening
   }, [user?.id, todaySeed]);
 
+  useEffect(() => {
+    if (!paidForSession || beforeFeelingDone !== true || !autoplayAfterPayment.current) return;
+    const requestedTrack = Number(searchParams.get('track'));
+    const trackIndex = Number.isInteger(requestedTrack) && requestedTrack >= 0 && requestedTrack < playerTracks.length ? requestedTrack : 0;
+    player.select(trackIndex);
+    autoplayAfterPayment.current = false;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('play');
+    setSearchParams(nextParams, { replace: true });
+  }, [paidForSession, beforeFeelingDone]);
+
   const submitBeforeFeeling = (answers) => {
     setFeelingSaving(true);
     submitSessionFeedback(user.id, { stage: 'before', appointmentId: null, answers, sessionType: 'relaxation' })
@@ -220,8 +289,7 @@ export default function RelaxationSession() {
 
   if (loading) return <PortalLoading />;
   if (error) return <PortalError message={error} onRetry={reload} onLogout={logout} />;
-  if (paidToday === false) return <Navigate to="/relaxation/intake" replace />;
-  if (paidToday === null) return <PortalLoading />;
+  if (paidForSession === null) return <PortalLoading />;
 
   if (beforeFeelingDone === false) {
     return (
@@ -262,9 +330,9 @@ export default function RelaxationSession() {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 -mt-2">
+      <div className={`grid grid-cols-1 gap-4 -mt-2 ${player.playing ? 'lg:grid-cols-1' : 'lg:grid-cols-[320px_minmax(0,1fr)]'}`}>
         {/* Left column — concern + recommended raags */}
-        <aside>
+        <aside className={player.playing ? 'hidden' : ''}>
           <p className="text-base font-semibold text-slate-800 mb-3">Your concern</p>
           <div className="relative mb-7">
             <button
@@ -303,14 +371,14 @@ export default function RelaxationSession() {
                 value={practiceInput}
                 onChange={(e) => setPracticeInput(e.target.value)}
                 placeholder="e.g. winding down before sleep"
-                className="min-w-0 flex-1 px-3 py-2.5 rounded-xl bg-white border border-black/10 text-sm outline-none focus:border-[#0d5239]/40"
+                className="min-w-0 flex-1 px-3 py-2.5 rounded-xl bg-white border border-black/10 text-sm outline-none focus:border-[#0F8594]/40"
               />
               <button type="submit" className="px-3 py-2.5 rounded-xl text-xs font-bold text-white" style={{ background: TEAL }}>Find</button>
             </div>
             {searchError && <p role="status" className="text-xs text-amber-800 mt-2">{searchError}</p>}
           </form>
 
-          <p className="text-base font-semibold text-slate-800 mb-3">Recommended raags</p>
+          <p className="text-base font-semibold text-slate-800 mb-3">Your tracks</p>
           {searchMode && matchedConcern && <p className="text-xs text-slate-500 mb-3">Matched to “{matchedRequest}”</p>}
           {hasFocus ? <div className="space-y-3">
             {raags.map((r, i) => {
@@ -319,13 +387,12 @@ export default function RelaxationSession() {
                 <button
                   key={r.name}
                   type="button"
-                  onClick={() => player.select(i)}
-                  className={`w-full text-left rounded-2xl border px-3 py-3 flex items-center gap-3 transition-all ${active ? 'border-[#0d5239]/30 bg-[#E6F0EA] shadow-sm' : 'border-black/5 bg-white hover:border-black/15'}`}
+                  onClick={() => selectTrack(i)}
+                  className={`w-full text-left rounded-2xl border px-3 py-3 flex items-center gap-3 transition-all ${active ? 'border-[#0F8594]/30 bg-[#E6F0EA] shadow-sm' : 'border-black/5 bg-white hover:border-black/15'}`}
                 >
                   <RaagArt hue={r.hue} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900 truncate">{r.name}</span>
-                    <span className="block text-xs text-slate-500 truncate">{r.note}</span>
+                    <span className="block text-sm font-semibold text-slate-900 truncate">Track {i + 1}</span>
                     <span className="block text-[11px] text-slate-400 mt-0.5">{r.length}</span>
                   </span>
                   {active && <BarsIcon className={`w-4 h-4 shrink-0 ${player.playing ? 'animate-pulse' : ''}`} style={{ color: TEAL }} />}
@@ -342,24 +409,15 @@ export default function RelaxationSession() {
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600">{searchMode ? `We could not match “${matchedRequest}” to a specific relaxation focus. Try describing a feeling or goal, or choose a concern from the list.` : 'Describe a feeling or goal, or choose a concern, to see practices selected for you.'}</p>
           </section>
         ) : (
-        <section className="relative rounded-[28px] overflow-hidden min-h-[640px] flex flex-col shadow-sm border border-black/5">
-          <img src="/assets/meditation-glow.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <section className={`relative min-h-[640px] overflow-hidden border-y border-black/5 flex flex-col ${player.playing ? 'min-h-[calc(100dvh-12rem)]' : ''}`}>
+          <img src={concernImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(255,250,240,0.15) 0%, rgba(255,250,240,0.55) 55%, rgba(253,246,238,0.95) 100%)' }} />
 
           <div className="relative flex-1 flex flex-col p-6 md:p-10">
-            <p className="text-sm font-semibold text-slate-800/80">{player.playing ? 'Now playing' : 'Paused'}</p>
-
-            <div className="mt-auto max-w-lg">
+            {!player.playing && <div className="mt-auto max-w-lg">
               <p className="font-serif italic text-lg text-slate-700">Relaxation session</p>
-              <h1 className="font-serif text-4xl md:text-5xl text-slate-900 mt-1">{current.name}</h1>
-              <p className="font-serif text-lg text-slate-700 mt-2">{current.note}</p>
-              <div className="flex items-center gap-3 my-5">
-                <span className="h-px w-24 bg-slate-500/30" />
-                <LotusIcon className="w-5 h-5 text-slate-600" />
-                <span className="h-px w-24 bg-slate-500/30" />
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed">{current.blurb}</p>
-            </div>
+              <h1 className="font-serif text-4xl md:text-5xl text-slate-900 mt-1">Track {player.index + 1}</h1>
+            </div>}
 
             {/* Transport */}
             <div className="mt-10 mx-auto w-full max-w-lg">
@@ -379,7 +437,7 @@ export default function RelaxationSession() {
               <div className="flex items-center justify-center gap-7 mt-5 text-slate-700">
                 <button type="button" aria-label="Shuffle" aria-pressed={player.shuffle} onClick={() => player.setShuffle((v) => !v)} className={player.shuffle ? '' : 'opacity-50'} style={player.shuffle ? { color: TEAL } : undefined}><ShuffleIcon className="w-5 h-5" /></button>
                 <button type="button" aria-label="Previous" onClick={player.prev} className="hover:scale-110 transition-transform"><PrevIcon className="w-6 h-6" /></button>
-                <button type="button" aria-label={player.playing ? 'Pause' : 'Play'} onClick={player.toggle} className="w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 transition-transform" style={{ background: TEAL }}>
+                <button type="button" aria-label={player.playing ? 'Pause' : 'Play Music'} onClick={requestPlayback} className="w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-105 transition-transform" style={{ background: player.playing ? '#292D32' : ORANGE }}>
                   {player.playing
                     ? <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
                     : <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>}
@@ -387,7 +445,6 @@ export default function RelaxationSession() {
                 <button type="button" aria-label="Next" onClick={player.next} className="hover:scale-110 transition-transform"><NextIcon className="w-6 h-6" /></button>
                 <button type="button" aria-label="Repeat" aria-pressed={player.loop} onClick={() => player.setLoop((v) => !v)} className={player.loop ? '' : 'opacity-50'} style={player.loop ? { color: TEAL } : undefined}><RepeatIcon className="w-5 h-5" /></button>
               </div>
-              <p className="text-center text-xs text-slate-500 mt-4">A calming tanpura drone plays until the recorded raag tracks are uploaded.</p>
               {(listened || feedbackDone) && (
                 <div className="flex justify-center mt-3">
                   {feedbackDone ? <span className="text-xs font-semibold" style={{ color: TEAL }}>Thank you — feedback sent to your therapist.</span>
@@ -396,13 +453,13 @@ export default function RelaxationSession() {
               )}
             </div>
 
-            <div className="mt-8 flex items-center justify-between text-xs text-slate-600">
+            {!player.playing && <div className="mt-8 flex items-center justify-between text-xs text-slate-600">
               <span className="flex items-center gap-2"><LotusIcon className="w-4 h-4" /> Music heals. You&apos;re doing great.</span>
               <span className="flex items-center gap-2">
                 <button type="button" aria-label={player.volume ? 'Mute' : 'Unmute'} onClick={() => player.setVolume(player.volume ? 0 : 0.6)}><VolumeIcon className="w-4 h-4" /></button>
-                <input type="range" min={0} max={1} step={0.02} value={player.volume} onChange={(e) => player.setVolume(Number(e.target.value))} aria-label="Volume" className="w-24 accent-[#0d5239]" />
+                <input type="range" min={0} max={1} step={0.02} value={player.volume} onChange={(e) => player.setVolume(Number(e.target.value))} aria-label="Volume" className="w-24 accent-[#0F8594]" />
               </span>
-            </div>
+            </div>}
           </div>
         </section>
         )}

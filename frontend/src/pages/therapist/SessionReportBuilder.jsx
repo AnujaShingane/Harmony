@@ -6,7 +6,7 @@ import { PageShell, Card, Badge } from '../../components/ui/Kit';
 import BackButton from '../../components/layout/BackButton';
 import { CHAKRAS } from '../../constants/options';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 // Editable session report. Pre-filled from the session and the Nadika.AI
 // chakra scan; every field can be changed by the therapist. "Download PDF"
@@ -115,7 +115,7 @@ export default function SessionReportBuilder() {
   };
 
   return (
-    <PageShell>
+    <PageShell showBack={false}>
       <style>{`
         @media print {
           body { background: #fff !important; }
@@ -157,7 +157,7 @@ export default function SessionReportBuilder() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Chakra assessment</p>
-              <label className="no-print flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={form.shareChakra} onChange={(e) => setForm((f) => ({ ...f, shareChakra: e.target.checked }))} className="accent-[#0d5239]" /> include in the patient's copy</label>
+              <label className="no-print flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={form.shareChakra} onChange={(e) => setForm((f) => ({ ...f, shareChakra: e.target.checked }))} className="accent-[#0F8594]" /> include in the patient's copy</label>
             </div>
             {scan && <p className="no-print text-[11px] text-amber-700 mb-2">Pre-filled from the Nadika.AI scan (provisional). Edit anything before sending.</p>}
             <div className="overflow-x-auto">

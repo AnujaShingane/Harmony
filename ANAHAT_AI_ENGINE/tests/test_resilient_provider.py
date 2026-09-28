@@ -58,6 +58,21 @@ def test_flow_gemini_temporary_failure_recovers_within_its_own_retry_budget():
     assert concept_texts(r) == ["lower back pain"] and len(g.calls) == 2
 
 
+def test_flow_gemini_timeout_falls_back_to_openrouter():
+    import httpx
+
+    g = FakeGemini([httpx.ReadTimeout("timed out"), httpx.ReadTimeout("timed out")])
+    with MockOpenRouter([ok(as_json(positive_payload()), MODELS[0])]) as srv:
+        provider = ResilientLLMProvider(
+            [gemini(g, max_retries=1), openrouter(srv, max_retries=0)],
+            total_timeout=120,
+        )
+        result = provider.extract_semantics(POSITIVE_TEXT)
+
+    assert concept_texts(result) == ["lower back pain"]
+    assert len(g.calls) == 2 and srv.call_count == 1
+
+
 # ---- H. everything fails -> ONE clean application error ---------------------------------------------
 def test_H_all_providers_fail_raises_one_safe_unavailable_error():
     g = FakeGemini([gemini_error(503, "UNAVAILABLE", "The model is overloaded. Try again later.")])

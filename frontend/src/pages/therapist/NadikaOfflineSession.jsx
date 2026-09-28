@@ -1,11 +1,13 @@
+function PanelIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>; }
+function StopIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>; }
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { anahat, getPatientOnboarding, updateAppointmentStatus } from '../../services/api';
-import { PageShell } from '../../components/ui/Kit';
+import { addDocument, anahat, getDocuments, getPatientOnboarding, updateAppointmentStatus } from '../../services/api';
 import { initialsOf } from '../../utils/initials';
+import SessionChatComposer from '../../components/chat/SessionChatComposer';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 const TEAL_SOFT = '#E6F0EA';
 const CREAM = '#F6F4EC';
 const SLEEP = ['Poor', 'Fair', 'Good', 'Excellent'];
@@ -61,10 +63,40 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   const [rxSuggest, setRxSuggest] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
+  const [attachments, setAttachments] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [aiPending, setAiPending] = useState(false);
+  const [bootRetry, setBootRetry] = useState(0);
   const bottomRef = useRef(null);
   const docRef = useRef(null);
+  const activeAIRequest = useRef(null);
   const booted = useRef(false);
   docRef.current = doc;
+
+  useEffect(() => {
+    if (!patientId) return;
+    getDocuments(patientId).then(setAttachments).catch(() => setAttachments([]));
+  }, [patientId]);
+
+  const uploadAttachment = async (file) => {
+    if (!file) return;
+    const updated = await addDocument(patientId, { file, name: file.name, size: file.size, category: 'Previous Report' });
+    setAttachments(updated || []);
+  };
+
+  const askEngine = async (body) => {
+    const controller = new AbortController();
+    activeAIRequest.current = controller;
+    setAiPending(true);
+    try {
+      return await anahat.submitResponse(doc.id, body, controller.signal);
+    } finally {
+      if (activeAIRequest.current === controller) {
+        activeAIRequest.current = null;
+        setAiPending(false);
+      }
+    }
+  };
 
   useEffect(() => {
     const guideKey = user?.id ? `anahat_assessment_guide_${user.id}` : null;
@@ -109,7 +141,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   const nadika = (text, card) => { const e = say('nadika', text, card); persist(e); return e; };
   const me = (text, extra) => { const e = say('therapist', text, null, extra); persist(e); return e; };
 
-  const run = async (label, fn) => { setBusy(label); setError(''); try { return await fn(); } catch (e) { setError(e.message || 'Something went wrong'); return null; } finally { setBusy(''); } };
+  const run = async (label, fn) => { setBusy(label); setError(''); try { return await fn(); } catch (e) { if (e.name !== 'AbortError') setError(e.message || 'Something went wrong'); return null; } finally { setBusy(''); } };
 
   // ---- boot: create/resume assessment, load reference + demographics ------
   useEffect(() => {
@@ -139,7 +171,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       else { setPhase('baseline'); say('nadika', 'Before we begin, let\u2019s record the baseline. Ask the patient to rate each of these right now and fill them in.', { type: 'baseline' }); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, appointmentId]);
+  }, [patientId, appointmentId, bootRetry]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chat.length, phase]);
 
@@ -254,7 +286,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     const quadrant = current?.quadrant || doc?.scope?.[quadrantCursor] || null;
     let r;
     try {
-      r = await anahat.submitResponse(doc.id, { text, questionId: null, question: null, quadrant, requestId: uid() });
+      r = await askEngine({ text, questionId: null, question: null, quadrant, requestId: uid() });
     } catch (e) {
       if (['ENGINE_NOT_CONFIGURED', 'ENGINE_ERROR'].includes(e.code) || /not reachable|not fully configured/i.test(e.message)) {
         nadika('The AI engine is not reachable right now, so I can only record this note without analysis.');
@@ -298,7 +330,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       const combined = openingQuestions.map((item) => `${item.text}: ${answers[item.id]}`).join('\n');
       let openingResult;
       try {
-        openingResult = await anahat.submitResponse(doc.id, { text: combined, questionId: null, question: null, quadrant: null, requestId: uid() });
+        openingResult = await askEngine({ text: combined, questionId: null, question: null, quadrant: null, requestId: uid() });
       } catch (e) {
         if (['ENGINE_NOT_CONFIGURED', 'ENGINE_ERROR'].includes(e.code) || /not reachable|not fully configured/i.test(e.message)) {
           openingResult = await anahat.recordOffline(doc.id, { text: combined, questionId: null, question: null, quadrant: null, requestId: uid() });
@@ -331,7 +363,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     me(text);
     let r = null;
     try {
-      r = await anahat.submitResponse(doc.id, { text, questionId: q?.id || null, question: q?.text || null, quadrant: q?.quadrant || null, requestId: uid() });
+      r = await askEngine({ text, questionId: q?.id || null, question: q?.text || null, quadrant: q?.quadrant || null, requestId: uid() });
     } catch (e) {
       if (['ENGINE_NOT_CONFIGURED', 'ENGINE_ERROR'].includes(e.code) || /not reachable|not fully configured/i.test(e.message)) {
         r = await anahat.recordOffline(doc.id, { text, questionId: q?.id || null, question: q?.text || null, quadrant: q?.quadrant || null, requestId: uid() });
@@ -526,7 +558,9 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   });
 
   const onSend = () => {
-    const text = input.trim(); if (!text || busy) return; setInput('');
+    const text = input.trim(); if (!text || busy) return;
+    if (!doc?.id) { setError('The assessment is not connected. Retry session setup before sending.'); return; }
+    setInput('');
     if (phase === 'context') return submitContext(text);
     if (phase === 'deep') {
       if (/^done\.?$/i.test(text)) { me('done'); afterQuadrant(doc); return; }
@@ -558,10 +592,15 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     done: 'Session closed',
     loading: 'Opening…',
   }[phase] || 'Ask Nadika anything, or use the options above…';
-  const inputDisabled = !!busy || ['done', 'loading', 'error'].includes(phase);
+  const inputDisabled = !!busy || ['done', 'loading'].includes(phase);
+
+  const jumpToMessage = (id) => {
+    setHistoryOpen(false);
+    document.getElementById(`nadika-message-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   return (
-    <PageShell>
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-[#F7F6F2] text-slate-900">
       {guideOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 px-4" role="dialog" aria-modal="true" aria-labelledby="assessment-guide-title">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
@@ -582,70 +621,88 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
           </div>
         </div>
       )}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
-          <button onClick={() => navigate('/therapist')} className="hover:text-slate-800">← Sessions</button><span>›</span><span className="text-slate-800 font-semibold">Offline session · {patientName}</span>
-          <span className={`ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold ${engineUp ? 'bg-emerald-50 text-emerald-700' : engineUp === false ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>AI engine {engineUp ? 'online' : engineUp === false ? 'offline — answers are recorded without analysis' : '…'}</span>
-          {!['ended', 'prescription', 'done', 'loading', 'error'].includes(phase) && (
-            <button
-              onClick={() => { if (window.confirm('End the assessment now and move to scoring? This closes the question flow.')) endAssessment(); }}
-              disabled={!!busy}
-              className="px-3 py-1 rounded-full text-[11px] font-bold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40"
-            >
-              End Session
-            </button>
-          )}
+      {historyOpen && <button type="button" aria-label="Close conversation panel" onClick={() => setHistoryOpen(false)} className="fixed inset-0 z-[125] bg-slate-950/30 lg:hidden" />}
+      <aside className={`${historyOpen ? 'fixed inset-y-0 left-0 z-[130] flex w-72 max-w-[85vw] shadow-2xl' : 'hidden'} lg:static lg:z-auto lg:flex lg:w-[292px] lg:max-w-none lg:shadow-none shrink-0 flex-col border-r border-black/[0.07] bg-white`}>
+        <div className="flex h-[76px] shrink-0 items-center gap-3 border-b border-black/[0.06] px-5">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FCE9DF] text-[#D65B38]"><Sparkle className="h-5 w-5" /></span>
+          <div><p className="text-sm font-bold tracking-wide text-slate-900">Nadika.ai</p><p className="text-[11px] text-slate-500">ANAHAT assessment</p></div>
+          <button type="button" onClick={() => setHistoryOpen(false)} aria-label="Close panel" className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden">×</button>
         </div>
-
-        <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 140px)', minHeight: 560 }}>
-          {/* Header */}
-          <div className="px-6 py-4 flex items-center justify-between text-white shrink-0" style={{ background: 'linear-gradient(90deg, #0d5239 0%, #1f6b52 100%)' }}>
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"><Sparkle className="w-5 h-5" /></span>
-              <div><p className="font-bold leading-tight">Nadika.ai</p><p className="text-xs text-white/70">Your AI therapy assistant · ANAHAT assessment</p></div>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              {doc && <span className="text-white/70 hidden sm:inline">{(doc.askedQuestionIds || []).length} answered · {(doc.scope || []).length} areas · {(doc.evidence || []).length} evidence</span>}
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-300" />Online</span>
-            </div>
+        <div className="border-b border-black/[0.06] p-5">
+          <button type="button" onClick={() => navigate('/therapist')} className="mb-5 inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900"><span aria-hidden="true">←</span> Sessions</button>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Patient</p>
+          <p className="mt-1 truncate text-base font-semibold text-slate-900">{patientName}</p>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="text-xs text-slate-500">Assessment progress</span>
+            <span className="text-xs font-semibold text-slate-700">{(doc?.askedQuestionIds || []).length} answered</span>
           </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5">
-            {chat.map((m) => (
-              <Message key={m.id} m={m} user={user}>
-                {m.card && <CardView card={m.card} asked={asked} phase={phase} current={current} doc={doc} reference={ref} baseline={baseline} setBaseline={setBaseline} submitBaseline={submitBaseline} contextText={contextText} setContextText={setContextText} submitContext={submitContext} pickedQ={pickedQ} setPickedQ={setPickedQ} applyScope={applyScope} decision={decision} sufficiency={sufficiency} decideCandidate={decideCandidate} finishReview={finishReview} rx={rx} setRx={setRx} draftRx={draftRx} approveRx={approveRx} rejectRx={rejectRx} goReport={goReport} endSession={endSession} busy={busy} selectSuggested={selectSuggested} inlineAnswer={inlineAnswer} setInlineAnswer={setInlineAnswer} submitInlineAnswer={submitInlineAnswer} suggestQuadrants={() => suggestQuadrants(doc)} />}
-              </Message>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#E87945] transition-all" style={{ width: `${Math.min(100, ((doc?.askedQuestionIds || []).length / Math.max(1, (doc?.askedQuestionIds || []).length + 4)) * 100)}%` }} /></div>
+          <p className="mt-2 text-[11px] capitalize text-slate-400">{phase.replaceAll('_', ' ')}{doc?.scope?.length ? ` · ${doc.scope.length} areas` : ''}</p>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col p-4">
+          <p className="px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Conversation</p>
+          <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {chat.length === 0 && <p className="px-2 py-3 text-xs text-slate-400">Your assessment conversation will appear here.</p>}
+            {chat.slice(-40).map((entry) => (
+              <button key={entry.id} type="button" onClick={() => jumpToMessage(entry.id)} className="w-full rounded-lg px-2.5 py-2 text-left transition hover:bg-[#F7F6F2]">
+                <span className="block text-[10px] font-semibold text-slate-400">{entry.role === 'therapist' ? 'You' : 'Nadika'} · {ts(entry.at)}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-700">{entry.text || entry.card?.type?.replaceAll('_', ' ') || 'Assessment step'}</span>
+              </button>
             ))}
-            {busy && <p className="text-xs text-slate-400 pl-14">Nadika.ai · {busy}…</p>}
-            {error && <p className="text-xs text-red-600 pl-14">{error}</p>}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Composer */}
-          <div className="border-t border-black/5 px-4 sm:px-6 py-4 flex items-center gap-3 shrink-0" style={{ background: '#FBFAF6' }}>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && onSend()}
-              disabled={inputDisabled}
-              placeholder={placeholder}
-              className="flex-1 px-5 py-3 bg-white border border-black/10 rounded-2xl text-sm outline-none focus:border-[#0d5239]/40 disabled:bg-black/[0.02] disabled:text-slate-400"
-            />
-            <button onClick={onSend} disabled={inputDisabled || !input.trim()} aria-label="Send" className="w-11 h-11 rounded-2xl flex items-center justify-center text-white disabled:opacity-40" style={{ background: TEAL }}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-            </button>
           </div>
         </div>
-      </div>
-    </PageShell>
+        <div className="border-t border-black/[0.06] p-4">
+          <div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Patient documents</p><span className="text-[10px] text-slate-400">{attachments.length}</span></div>
+          {attachments.length === 0 ? <p className="text-xs text-slate-400">No documents uploaded.</p> : <div className="max-h-24 space-y-1 overflow-y-auto">{attachments.slice(0, 5).map((file) => <a key={file.id || file.fileId || file.name} href={file.url || '#'} target="_blank" rel="noreferrer" className="block truncate text-xs text-slate-600 hover:text-[#D65B38]">{file.name || file.filename || 'Patient document'}</a>)}</div>}
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-[76px] shrink-0 items-center justify-between gap-3 border-b border-black/[0.07] bg-white px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => setHistoryOpen(true)} aria-label="Open conversation panel" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-black/[0.08] text-slate-600 hover:bg-slate-50 lg:hidden"><PanelIcon className="h-5 w-5" /></button>
+            <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">Assessment with {patientName}</p><p className="mt-0.5 text-xs text-slate-500">{(doc?.scope || []).length} areas · {(doc?.evidence || []).length} indicators recorded</p></div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className={`hidden items-center gap-1.5 text-xs sm:flex ${engineUp ? 'text-emerald-700' : engineUp === false ? 'text-amber-700' : 'text-slate-400'}`}><span className={`h-1.5 w-1.5 rounded-full ${engineUp ? 'bg-emerald-500' : engineUp === false ? 'bg-amber-500' : 'bg-slate-300'}`} />{engineUp ? 'AI online' : engineUp === false ? 'Offline mode' : 'Connecting'}</span>
+            {!['ended', 'prescription', 'done', 'loading', 'error'].includes(phase) && <button type="button" onClick={() => { if (window.confirm('End the assessment now and move to scoring? This closes the question flow.')) endAssessment(); }} disabled={!!busy} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-40">End session</button>}
+          </div>
+        </header>
+
+        <section className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-4 py-7 sm:px-6 lg:px-8">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+              {chat.map((m) => (
+                <Message key={m.id} id={`nadika-message-${m.id}`} m={m} user={user}>
+                  {m.card && <CardView card={m.card} asked={asked} phase={phase} current={current} doc={doc} reference={ref} baseline={baseline} setBaseline={setBaseline} submitBaseline={submitBaseline} contextText={contextText} setContextText={setContextText} submitContext={submitContext} pickedQ={pickedQ} setPickedQ={setPickedQ} applyScope={applyScope} decision={decision} sufficiency={sufficiency} decideCandidate={decideCandidate} finishReview={finishReview} rx={rx} setRx={setRx} draftRx={draftRx} approveRx={approveRx} rejectRx={rejectRx} goReport={goReport} endSession={endSession} busy={busy} selectSuggested={selectSuggested} inlineAnswer={inlineAnswer} setInlineAnswer={setInlineAnswer} submitInlineAnswer={submitInlineAnswer} suggestQuadrants={() => suggestQuadrants(doc)} />}
+                </Message>
+              ))}
+              {aiPending && <div className="flex items-center gap-2 pl-12 text-xs font-medium text-slate-500"><span className="nadika-thinking-dot" /> Nadika is thinking</div>}
+              {busy && !aiPending && <p className="pl-12 text-xs text-slate-400">{busy}…</p>}
+              {error && <p className="pl-12 text-xs text-red-600">{error}</p>}
+              <div ref={bottomRef} />
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-black/[0.07] bg-white px-4 py-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-4xl">
+              {phase === 'error' && !doc && <div className="mb-3 flex items-center justify-between gap-3 border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><span>Session setup failed. Retry to connect before sending.</span><button type="button" onClick={() => setBootRetry((retry) => retry + 1)} className="shrink-0 font-bold underline">Retry setup</button></div>}
+              {aiPending && <div className="mb-2 flex justify-end"><button type="button" onClick={() => activeAIRequest.current?.abort()} aria-label="Stop Nadika response" title="Stop response" className="flex h-8 items-center gap-2 rounded-md bg-slate-800 px-3 text-xs font-semibold text-white"><StopIcon className="h-3.5 w-3.5" />Stop</button></div>}
+              <SessionChatComposer value={input} onChange={setInput} onSend={onSend} onUpload={uploadAttachment} disabled={inputDisabled} placeholder={placeholder} />
+              <p className="mt-2 text-center text-[10px] text-slate-400">Responses are recorded in the assessment transcript.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+      <style>{`@keyframes nadika-think { 0%, 100% { opacity: .35; transform: scale(.82); } 50% { opacity: 1; transform: scale(1); } } .nadika-thinking-dot { width: 7px; height: 7px; border-radius: 999px; background: #E87945; animation: nadika-think 1.1s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .nadika-thinking-dot { animation: none; opacity: 1; } }`}</style>
+    </div>
   );
 }
 
-function Message({ m, user, children }) {
+function Message({ id, m, user, children }) {
   const isMe = m.role === 'therapist';
   return (
-    <div className={`flex gap-3 ${isMe ? 'justify-end' : ''}`}>
+    <div id={id} className={`flex scroll-mt-8 gap-3 ${isMe ? 'justify-end' : ''}`}>
       {!isMe && <span className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0" style={{ background: TEAL }}><Sparkle className="w-4 h-4" /></span>}
       <div className={`max-w-[78%] ${isMe ? 'items-end' : ''} flex flex-col gap-2`}>
         {m.text && <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line" style={{ background: isMe ? TEAL_SOFT : CREAM, color: '#1e293b' }}>{m.text}</div>}
@@ -740,9 +797,9 @@ function CardView({ card, asked, phase, current, doc, reference, baseline, setBa
       <div className={box}>
         <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Prescription review</p>
         <p className="text-xs font-bold text-slate-700 mb-1">Raags</p>
-        {(d.raga_candidates || []).length === 0 ? <p className="text-xs text-slate-500 mb-2">None proposed.</p> : (d.raga_candidates || []).map((r, i) => <label key={i} className="flex items-center gap-2 text-sm py-0.5"><input type="checkbox" disabled={!on} checked={!!rx?.ragas.some((p) => nameR(p) === nameR(r))} onChange={() => toggle('ragas', r, nameR)} className="accent-[#0d5239]" />{nameR(r)}</label>)}
+        {(d.raga_candidates || []).length === 0 ? <p className="text-xs text-slate-500 mb-2">None proposed.</p> : (d.raga_candidates || []).map((r, i) => <label key={i} className="flex items-center gap-2 text-sm py-0.5"><input type="checkbox" disabled={!on} checked={!!rx?.ragas.some((p) => nameR(p) === nameR(r))} onChange={() => toggle('ragas', r, nameR)} className="accent-[#0F8594]" />{nameR(r)}</label>)}
         <p className="text-xs font-bold text-slate-700 mt-2 mb-1">Activities</p>
-        {(d.activities || []).length === 0 ? <p className="text-xs text-slate-500 mb-2">None proposed.</p> : (d.activities || []).map((a, i) => <label key={i} className="flex items-center gap-2 text-sm py-0.5"><input type="checkbox" disabled={!on} checked={!!rx?.activities.some((p) => nameA(p) === nameA(a))} onChange={() => toggle('activities', a, nameA)} className="accent-[#0d5239]" />{nameA(a)}</label>)}
+        {(d.activities || []).length === 0 ? <p className="text-xs text-slate-500 mb-2">None proposed.</p> : (d.activities || []).map((a, i) => <label key={i} className="flex items-center gap-2 text-sm py-0.5"><input type="checkbox" disabled={!on} checked={!!rx?.activities.some((p) => nameA(p) === nameA(a))} onChange={() => toggle('activities', a, nameA)} className="accent-[#0F8594]" />{nameA(a)}</label>)}
         {on && <textarea rows={2} value={rx.note} onChange={(e) => setRx((x) => ({ ...x, note: e.target.value }))} placeholder="Note for the patient (optional)" className="mt-3 w-full px-3 py-2 bg-black/[0.03] border border-black/10 rounded-xl text-sm resize-none" />}
         <div className="flex gap-2 mt-3"><Opt on={on} primary onClick={approveRx}>Approve &amp; finalise</Opt><Opt on={on} onClick={rejectRx}>Reject</Opt></div>
       </div>
@@ -845,7 +902,7 @@ function CardView({ card, asked, phase, current, doc, reference, baseline, setBa
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {all.map((q) => { const has = inScope.has(q); const on = pickedQ.includes(q); const rec = (card.recommended || []).includes(q); return (
             <label key={q} className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer" style={{ borderColor: has ? '#9ED9B4' : on ? TEAL : 'rgba(0,0,0,0.08)', background: has ? '#E6F5EC' : on ? TEAL_SOFT : '#fff' }}>
-              <input type="checkbox" disabled={has || phase !== 'scope'} checked={has || on} onChange={() => setPickedQ((p) => (on ? p.filter((x) => x !== q) : [...p, q]))} className="accent-[#0d5239]" />
+              <input type="checkbox" disabled={has || phase !== 'scope'} checked={has || on} onChange={() => setPickedQ((p) => (on ? p.filter((x) => x !== q) : [...p, q]))} className="accent-[#0F8594]" />
               <span className={has ? 'text-emerald-800' : 'text-slate-800'}>{q}</span>{rec && !has && <span className="ml-auto text-[10px] font-bold" style={{ color: TEAL }}>suggested</span>}{has && <span className="ml-auto text-[10px] font-bold text-emerald-700">in scope</span>}
             </label>); })}
         </div>

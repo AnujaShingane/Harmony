@@ -7,11 +7,24 @@ Technical implementation of the ANAHAT assessment engine around the existing arc
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
-# set GEMINI_API_KEY in .env
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Qdrant and BGE-M3 remain external/runtime dependencies. The engine uses `BAAI/bge-m3` with 1024-dimensional normalized embeddings and Qdrant for candidate retrieval.
+The default LLM is the local Ollama model configured by `LOCAL_LLM_URL` and
+`LOCAL_LLM_MODEL`. Gemini and OpenRouter are optional fallbacks; set their keys
+only if you want those remote providers enabled. Keep the local model available
+in Ollama (`ollama pull llama3:latest`).
+
+Qdrant must be running at `QDRANT_URL` for retrieval. BGE-M3 uses
+`BAAI/bge-m3` with 1024-dimensional normalized embeddings; the model and Qdrant
+client are loaded lazily and reused by the app.
+
+For development reloads, restrict the watched path to application source so a
+virtual environment is never scanned:
+
+```bash
+python -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000
+```
 
 ## Tests
 
@@ -27,7 +40,9 @@ Passing technical tests are **not** clinical/domain validation.
 
 ## Environment
 
-See `.env.example`. Gemini uses the official `google-genai` Python SDK and structured Pydantic output. API secrets are never stored in source code.
+See `.env.example`. Local extraction uses Ollama's schema-constrained chat
+endpoint. Optional Gemini uses the official `google-genai` SDK; OpenRouter uses
+the OpenAI-compatible API. API secrets are never stored in source code.
 
 ## KB immutability
 

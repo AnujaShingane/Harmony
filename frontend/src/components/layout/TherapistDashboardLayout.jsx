@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { initialsOf } from '../../utils/initials';
 import DashboardFooter from './DashboardFooter';
 import { useResizableSidebar, ResizeHandle } from './useResizableSidebar';
@@ -17,9 +17,14 @@ import { useResizableSidebar, ResizeHandle } from './useResizableSidebar';
 // read as one consistent product rather than separate skins.
 // ---------------------------------------------------------------------------
 
-export const SAGE_DARK = '#083b29';
-export const SAGE = '#0d5239';
-export const SAGE_SOFT = '#CFE7E1';
+// Single, consistent cyan accent shared by the therapist and admin consoles
+// (and PatientDashboardLayout's TEAL/TEAL_LIGHT) so every dashboard reads as
+// one product. Kept under the historical "SAGE" name so every importing tab
+// repaints automatically — cyan is used for accents (icons, active states,
+// links, small highlights), not as a dominant page color.
+export const SAGE_DARK = '#0A6976';
+export const SAGE = '#0F8594';
+export const SAGE_SOFT = '#DDF2F4';
 export const CREAM = '#F6F4EC';
 export const MINT = '#8FCBB9';
 export const SOFT_YELLOW = '#E3F0A0';
@@ -55,8 +60,6 @@ export default function TherapistDashboardLayout({
   onOpenNotification,
   onOpenNotifications,
   locked = false,
-  showBack = false,
-  onBack,
 }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('therapistSidebarCollapsed') === '1');
   const { width: sidebarWidth, onMouseDown: onResizeStart } = useResizableSidebar('therapistSidebarWidth', { initial: 260 });
@@ -105,7 +108,7 @@ export default function TherapistDashboardLayout({
         style={{ width: collapsed ? 80 : sidebarWidth }}
       >
         {!collapsed && <ResizeHandle onMouseDown={onResizeStart} />}
-        <div className={`flex items-center gap-2.5 px-6 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
+        <Link to="/" aria-label="Anahat Transformations home" className={`flex items-center gap-2.5 px-6 h-20 shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}>
           <img src="/assets/anahat-logo.png" alt="Anahat" className="w-9 h-9 object-contain shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
@@ -113,7 +116,7 @@ export default function TherapistDashboardLayout({
               <p className="text-[10px] text-slate-400 truncate -mt-0.5">Tune. Heal. Transform.</p>
             </div>
           )}
-        </div>
+        </Link>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {THERAPIST_NAV_ITEMS.map((item) => {
@@ -171,16 +174,15 @@ export default function TherapistDashboardLayout({
       {/* ---------------- MAIN ---------------- */}
       <div className="flex-1 min-w-0 flex flex-col h-full">
         <header className="h-20 shrink-0 flex items-center justify-between gap-4 px-8" style={{ background: CREAM }}>
-          {showBack && (
-            <button
-              type="button"
-              onClick={() => (onBack ? onBack() : window.history.length > 1 ? navigate(-1) : navigate('/therapist'))}
-              aria-label="Go back"
-              className="w-11 h-11 rounded-full flex items-center justify-center text-slate-500 bg-white border border-black/[0.06] hover:bg-black/[0.02] shadow-sm shrink-0"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/therapist'))}
+            aria-label="Go back"
+            title="Go back"
+            className="w-11 h-11 rounded-full flex items-center justify-center text-slate-500 bg-white border border-black/[0.06] hover:bg-black/[0.02] shadow-sm shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M15 19l-7-7 7-7" /></svg>
+          </button>
           <div className="relative w-full max-w-md">
             <SearchIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
@@ -290,9 +292,12 @@ export default function TherapistDashboardLayout({
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="max-w-[1200px] mx-auto px-8 pb-10 min-h-full flex flex-col"><div className="flex-1">{children}</div><DashboardFooter /></div>
+        <main className={`flex-1 min-h-0 ${active === 'messages' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${active === 'messages' ? 'h-full w-full px-0 pb-0' : 'w-full max-w-none px-4 sm:px-6 lg:px-8 pb-4'} min-h-full flex flex-col`}>
+            <div className={`flex-1 portal-page-content ${active === 'messages' ? 'h-full min-h-0 flex flex-col' : ''}`}>{children}</div>
+          </div>
         </main>
+        <DashboardFooter />
       </div>
 
       {confirmingLogout && (

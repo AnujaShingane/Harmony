@@ -135,9 +135,18 @@ export function parseAppointmentDateTime(appointment) {
     const d = new Date(appointment.scheduledAt);
     return isNaN(d.getTime()) ? null : d;
   }
+  if (appointment?.date && appointment?.startTime) {
+    const d = new Date(`${appointment.date}T${appointment.startTime}:00+05:30`);
+    return isNaN(d.getTime()) ? null : d;
+  }
   // Legacy slots stored as free text (e.g. "Mon 10:00") carry no absolute
   // date, so a join window can't be computed for them.
   return null;
+}
+
+export function isAppointmentPast(appointment, now = new Date()) {
+  const startsAt = parseAppointmentDateTime(appointment);
+  return Boolean(startsAt && startsAt <= now);
 }
 
 export function getAppointmentSessionWindow(appointment) {

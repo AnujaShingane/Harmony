@@ -76,7 +76,7 @@ export function useRaagPlayer(tracks) {
   useEffect(() => { if (playing) startDrone(track); else stopDrone(); }, [playing, index, track?.name, track?.hue]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { stopDrone(); ctxRef.current?.close?.(); }, [stopDrone]);
 
-  const select = (i) => { setIndex(i); setElapsed(0); setPlaying(true); };
+  const select = (i, autoPlay = true) => { setIndex(i); setElapsed(0); setPlaying(autoPlay); };
   const toggle = () => setPlaying((p) => !p);
   const seek = (fraction) => setElapsed(Math.max(0, Math.min(duration, Math.round(fraction * duration))));
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

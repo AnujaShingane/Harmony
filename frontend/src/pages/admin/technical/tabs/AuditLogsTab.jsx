@@ -11,7 +11,7 @@ export default function AuditLogsTab({ audit }) {
         {audit.length === 0 ? (
           <EmptyState title="No activity logged yet" />
         ) : (
-          <div className="space-y-2 max-h-[560px] overflow-y-auto thin-scroll">
+          <div className="space-y-2">
             {audit.map((a) => (
               <div key={a.id} className="flex justify-between text-xs bg-black/[0.03] rounded-lg px-4 py-2.5">
                 <span><strong>{a.action}</strong> — {a.actor} {a.detail && Object.keys(a.detail).length > 0 && `(${JSON.stringify(a.detail)})`}</span>

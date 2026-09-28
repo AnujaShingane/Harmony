@@ -8,7 +8,7 @@ import {
   saveRelaxationSession, getRelaxationPaymentStatus, createRelaxationOrder, payRelaxationOrder,
 } from '../../services/api';
 
-const TEAL = '#0d5239';
+const TEAL = '#0F8594';
 
 // Relaxation, per the current spec, is a short gated flow before the
 // existing track-picker/player page:
@@ -117,7 +117,7 @@ export default function RelaxationIntake() {
           <Card className="space-y-6">
             <DosAndDonts />
             <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-black/5">
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 w-4 h-4 accent-[#0d5239]" />
+              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 w-4 h-4 accent-[#0F8594]" />
               <span className="text-sm text-slate-700">I have read and agree to follow these guidelines for my Relaxation session.</span>
             </label>
             <div className="flex justify-end">

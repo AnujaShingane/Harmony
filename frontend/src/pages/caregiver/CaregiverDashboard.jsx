@@ -56,7 +56,7 @@ export default function CaregiverDashboard() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#FDF6EE] text-slate-900">
-                <div className="w-10 h-10 border-2 border-teal-500/40 border-t-teal-400 rounded-full animate-spin"></div>
+                <div className="w-10 h-10 border-2 border-[#0F8594]/40 border-t-teal-400 rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -68,14 +68,14 @@ export default function CaregiverDashboard() {
     return (
         <div className="min-h-screen bg-[#FDF6EE] font-sans text-slate-900 p-4 md:p-8 relative overflow-hidden">
             <div className="absolute inset-0 z-0">
-                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-300/20 blur-[120px]"></div>
+                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0F8594]/45 blur-[120px]"></div>
             </div>
 
             <div className="relative z-10 max-w-4xl mx-auto">
                 <div className="flex justify-between items-center gap-6 bg-white/80 backdrop-blur-2xl border border-black/10 rounded-[2rem] p-6 mb-6">
                     <div className="flex items-center gap-5 min-w-0">
                         {/* Drop an image at public/assets/caregiver-support.jpg to show it here. */}
-                        <div className="hidden sm:block w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-lg shrink-0 bg-teal-100">
+                        <div className="hidden sm:block w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-lg shrink-0 bg-[#0F8594]/12">
                             <img
                                 src="/assets/caregiver-support.jpg"
                                 alt=""
@@ -84,7 +84,7 @@ export default function CaregiverDashboard() {
                             />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-widest text-teal-600 font-bold mb-1">Caregiver Access · Approved</p>
+                            <p className="text-xs uppercase tracking-widest text-[#0F8594] font-bold mb-1">Caregiver Access · Approved</p>
                             <h1 className="text-2xl font-serif font-bold text-slate-900 truncate">Welcome, {user?.first_name || user?.name}</h1>
                         </div>
                     </div>
@@ -97,8 +97,8 @@ export default function CaregiverDashboard() {
                 </div>
 
                 <div className="bg-white/80 backdrop-blur-2xl border border-black/10 rounded-[2rem] p-10 text-center">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-teal-500/20 to-teal-500/20 border border-teal-500/30 rounded-full flex items-center justify-center mb-6">
-                        <svg className="w-8 h-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-[#0F8594]/20 to-[#0F8594]/20 border border-[#0F8594]/30 rounded-full flex items-center justify-center mb-6">
+                        <svg className="w-8 h-8 text-[#0F8594]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                     </div>

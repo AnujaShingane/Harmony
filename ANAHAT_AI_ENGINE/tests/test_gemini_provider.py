@@ -40,6 +40,12 @@ def test_J_structured_output_config_is_preserved():
     assert POSITIVE_TEXT in c.calls[0]["contents"]
 
 
+def test_J_sdk_timeout_uses_milliseconds_from_seconds_budget():
+    c = FakeGemini([gemini_reply(parsed=positive_payload())])
+    make(c, request_timeout=60, total_timeout=120, max_retries=0).extract_semantics(POSITIVE_TEXT)
+    assert c.calls[0]["config"].http_options.timeout == 60_000
+
+
 def test_J_negation_is_preserved_through_the_provider():
     r = make(FakeGemini([gemini_reply(parsed=negative_payload())])).extract_semantics(NEGATIVE_TEXT)
     assert r.concepts[0].polarity == "negative"

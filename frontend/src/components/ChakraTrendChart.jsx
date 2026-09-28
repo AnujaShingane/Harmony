@@ -8,7 +8,7 @@ export function colorForChakra(name, knownNames) {
 export function severityBadgeClass(severity) {
     if (severity === 'Severe') return 'bg-red-500/20 text-red-300 border-red-500/30';
     if (severity === 'Moderate') return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-    if (severity === 'Mild') return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+    if (severity === 'Mild') return 'bg-[#0F8594]/20 text-[#0F8594]/45 border-[#0F8594]/30';
     return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
 }
 

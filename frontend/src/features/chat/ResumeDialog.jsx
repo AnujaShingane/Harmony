@@ -47,13 +47,13 @@ export default function ResumeConversationDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-[#0d5239] p-6 text-white">
+        <div className="bg-[#0F8594] p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-4xl"></div>
               <div>
                 <h2 className="text-2xl font-bold">Welcome Back!</h2>
-                <p className="text-teal-100 text-sm mt-1">
+                <p className="text-[#0F8594]/12 text-sm mt-1">
               You have an incomplete session
                 </p>
               </div>
@@ -72,7 +72,7 @@ export default function ResumeConversationDialog({
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
           {/* Session Info */}
-          <div className="bg-teal-50 rounded-lg p-4 mb-6">
+          <div className="bg-[#0F8594]/8 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-600 mb-1">Session Name</p>
@@ -80,7 +80,7 @@ export default function ResumeConversationDialog({
               </div>
               <div>
                 <p className="text-xs text-gray-600 mb-1">Current Phase</p>
-                <p className="font-semibold text-teal-700">{session.currentPhase}</p>
+                <p className="font-semibold text-[#0A6976]">{session.currentPhase}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600 mb-1">Questions Answered</p>
@@ -109,19 +109,19 @@ export default function ResumeConversationDialog({
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-teal-600">
+                    <p className="text-2xl font-bold text-[#0F8594]">
                       {summary.totalTurns}
                     </p>
                     <p className="text-xs text-gray-600">Exchanges</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-teal-700">
+                    <p className="text-2xl font-bold text-[#0A6976]">
                       {session.conversationTurns}
                     </p>
                     <p className="text-xs text-gray-600">Messages</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-teal-600">
+                    <p className="text-2xl font-bold text-[#0F8594]">
                       {summary.phases?.length || 0}
                     </p>
                     <p className="text-xs text-gray-600">Phases</p>
@@ -143,7 +143,7 @@ export default function ResumeConversationDialog({
                   <div>
                     <button
                       onClick={() => setShowFullHistory(!showFullHistory)}
-                      className="text-sm text-teal-600 hover:text-teal-700 font-semibold mb-2 flex items-center gap-1"
+                      className="text-sm text-[#0F8594] hover:text-[#0A6976] font-semibold mb-2 flex items-center gap-1"
                     >
                       {showFullHistory ? 'â–¼' : 'â–¶'}Recent Conversation
                     </button>
@@ -157,13 +157,13 @@ export default function ResumeConversationDialog({
                             </p>
                             {turn.userText && (
                               <div className="mb-1">
-                                <span className="text-xs font-semibold text-teal-700">You: </span>
+                                <span className="text-xs font-semibold text-[#0A6976]">You: </span>
                                 <span className="text-sm text-gray-700">{turn.userText}</span>
                               </div>
                             )}
                             {turn.assistantText && (
                               <div>
-                                <span className="text-xs font-semibold text-teal-800">Therapist: </span>
+                                <span className="text-xs font-semibold text-[#0E5860]">Therapist: </span>
                                 <span className="text-sm text-gray-700">{turn.assistantText}</span>
                               </div>
                             )}
@@ -178,11 +178,11 @@ export default function ResumeConversationDialog({
           )}
 
           {/* Information Box */}
-          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
+          <div className="bg-[#0F8594]/8 border border-[#0F8594]/25 rounded-lg p-4 mb-4">
             <div className="flex gap-3">
               <div className="text-2xl"></div>
               <div className="flex-1">
-                <p className="text-sm text-teal-900">
+                <p className="text-sm text-[#0A4247]">
                   <strong>Resume your session</strong> to continue from where you left off, 
                   or <strong>start a new session</strong>to begin fresh with a new assessment.
                 </p>
@@ -211,7 +211,7 @@ export default function ResumeConversationDialog({
             className={`flex-1 py-3 rounded-lg font-semibold text-white transition-all ${
               loading 
                 ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-[#0d5239] hover:bg-[#0a4530] shadow-lg hover:shadow-xl transform hover:scale-105'
+                : 'bg-[#0F8594] hover:bg-[#0a4530] shadow-lg hover:shadow-xl transform hover:scale-105'
             }`}
           >
             {loading ? (

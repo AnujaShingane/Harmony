@@ -27,7 +27,7 @@ function ListeningGuide({ onContinue }) {
       <p className="text-sm text-slate-500 mt-1 mb-6">Headphones or a speaker, 60–70% volume, phone away. Read once, then confirm.</p>
       <DosAndDonts compact />
       <div className="flex justify-end mt-6">
-        <button type="button" onClick={onContinue} className="px-7 py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: '#0d5239' }}>
+        <button type="button" onClick={onContinue} className="px-7 py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: '#0F8594' }}>
           I understand — open Music Library
         </button>
       </div>
@@ -116,7 +116,7 @@ export default function MusicPreference() {
             return (
               <div
                 key={t.id}
-                className="relative overflow-hidden rounded-[1.75rem] p-7 text-white shadow-xl shadow-teal-500/10"
+                className="relative overflow-hidden rounded-[1.75rem] p-7 text-white shadow-xl shadow-[#0F8594]/10"
                 style={{ background: `linear-gradient(150deg, ${t.colors[0]}, ${t.colors[1]})` }}
               >
                 <TrackVisual variant={variant} className="w-40 h-40 -right-6 -top-6 opacity-80" />

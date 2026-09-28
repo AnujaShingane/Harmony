@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // Auth is a session cookie now, not a localStorage token — whether the user
@@ -7,11 +7,12 @@ import { useAuth } from '../context/AuthContext';
 // flash-redirecting a genuinely-logged-in user back to /login on refresh.
 export default function ProtectedRoute({ children }) {
     const { isAuthenticated, booting } = useAuth();
+    const location = useLocation();
 
     if (booting) return null;
 
     if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
 
     return children;

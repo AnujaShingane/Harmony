@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -19,6 +20,7 @@ from app.llm.openrouter_provider import OpenRouterProvider
 router=APIRouter()
 _kb=KnowledgeBase().load_directory(settings.kb_path)
 _service=AssessmentService(kb=_kb, llm=None, retriever=None)
+_runtime_service_lock = threading.Lock()
 
 
 def _route_error_response(exc: Exception) -> JSONResponse:
@@ -63,17 +65,18 @@ def quadrants(session_id: str, current_issue: str | None = None):
 def select_quadrant(session_id: str, request: QuadrantSelection):
     return _service.select_quadrant(session_id, request.quadrant)
 
-def _runtime_service():
-    if _service.llm is None:
-        _service.llm = build_llm_provider()
-
-    if _service.retriever is None:
-        _service.retriever = KnowledgeRetriever()
+def _runtime_service(*, include_retriever: bool = False):
+    if _service.llm is None or (include_retriever and _service.retriever is None):
+        with _runtime_service_lock:
+            if _service.llm is None:
+                _service.llm = build_llm_provider()
+            if include_retriever and _service.retriever is None:
+                _service.retriever = KnowledgeRetriever()
 
     return _service
 
 @router.post('/sessions/{session_id}/responses')
-async def response(session_id: str, request: PatientResponseCreate, req: Request):
+def response(session_id: str, request: PatientResponseCreate, req: Request):
     raw_key = req.headers.get("Idempotency-Key")
 
     try:
@@ -82,7 +85,13 @@ async def response(session_id: str, request: PatientResponseCreate, req: Request
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        return _runtime_service().process_response(session_id, request.text, request.question_id, request.quadrant, request_id=request_id)
+        return _runtime_service(include_retriever=True).process_response(
+            session_id,
+            request.text,
+            request.question_id,
+            request.quadrant,
+            request_id=request_id,
+        )
     except LLMServiceError as exc:
         return llm_error_response(exc)
     except ValueError as exc:
@@ -92,17 +101,17 @@ async def response(session_id: str, request: PatientResponseCreate, req: Request
 
 @router.post('/sessions/{session_id}/candidates/{candidate_id}/confirm')
 def confirm(session_id: str,candidate_id: str,request: ConfirmationRequest,response_id: str,selected_chakra: str | None = None):
-    try: return _runtime_service().confirm_candidate(session_id,response_id,candidate_id,request.confirmed,request.evidence_status,request.therapist_note,selected_chakra,request.confirmation_actor)
+    try: return _service.confirm_candidate(session_id,response_id,candidate_id,request.confirmed,request.evidence_status,request.therapist_note,selected_chakra,request.confirmation_actor)
     except Exception as exc: raise HTTPException(status_code=400,detail=str(exc)) from exc
 
 @router.get('/sessions/{session_id}/chakra-report')
 def chakra_report(session_id: str):
-    try: return _runtime_service().score(session_id)
+    try: return _service.score(session_id)
     except Exception as exc: raise HTTPException(status_code=400,detail=str(exc)) from exc
 
 @router.post('/sessions/{session_id}/decision')
 def therapist_decision(session_id: str, stop: bool = False):
     try:
-        return _runtime_service().decision(session_id, therapist_stop=stop)
+        return _service.decision(session_id, therapist_stop=stop)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
