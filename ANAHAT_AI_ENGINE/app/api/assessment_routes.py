@@ -72,6 +72,7 @@ def _runtime_service(*, include_retriever: bool = False):
                 _service.llm = build_llm_provider()
             if include_retriever and _service.retriever is None:
                 _service.retriever = KnowledgeRetriever()
+                _service.retriever.collection_name = settings.qdrant_indicator_collection
 
     return _service
 

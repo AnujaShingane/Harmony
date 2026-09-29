@@ -6,7 +6,7 @@ import TherapistCard from '../../components/patient/TherapistCard';
 import { PortalLoading, PortalError } from '../../components/layout/PortalStatus';
 import {
   Card, PrimaryButton, EmptyState, CardSkeleton, SelectField,
-  LIME,
+  LIME, TEAL_LIGHT, initials,
 } from '../../components/ui/PatientKit';
 import {
   getTherapists, getFreeSlots, bookRealAppointment, payForAppointment,
@@ -14,7 +14,7 @@ import {
 import { formatISTDate, formatISTTime, formatISTTimeShort } from '../../utils/time';
 
 const TEAL = '#0F8594';
-const TEAL_DARK = '#0F8594';
+const TEAL_DARK = '#075E68';
 
 // Platform-wide service fee applied on top of whatever the therapist sets as
 // their own session fee — a business policy constant, not per-therapist
@@ -411,8 +411,9 @@ function DetailsStep({
                     key={occurrence.date.toISOString()}
                     type="button"
                     aria-pressed={active}
+                    aria-label={`${formatISTTimeShort(occurrence.date)}${active ? ' selected' : ''}`}
                     onClick={() => onSelect(occurrence)}
-                    className="min-w-24 rounded-md px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+                    className={`min-w-24 rounded-md px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 ${active ? 'ring-2 ring-[#075E68] ring-offset-2' : ''}`}
                     style={{ background: active ? TEAL_DARK : TEAL }}
                   >
                     {formatISTTimeShort(occurrence.date)}

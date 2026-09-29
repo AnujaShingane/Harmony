@@ -34,7 +34,14 @@ class ScoringEngine:
             return 0.0
         sw = self.strength.get(indicator.association_rating, 0.0)
         iw = self.intensity.get(evidence.intensity, 0.0)
-        rw = self.reliability.get(evidence.status.value, 0.0)
+        status_key = evidence.status.value
+        rw = self.reliability.get(
+            status_key,
+            self.reliability.get(
+                status_key.replace("_", " ").title(),
+                DEFAULT_RELIABILITY.get(status_key, 0.0),
+            ),
+        )
         return sw * iw * rw
 
     @staticmethod

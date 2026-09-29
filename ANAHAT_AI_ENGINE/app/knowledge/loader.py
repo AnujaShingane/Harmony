@@ -115,7 +115,11 @@ def _per_chakra_state(chakra_list: list[str], state_field) -> dict[str, str]:
                 matched_chakra = full
                 break
         if matched_chakra:
-            result[matched_chakra] = seg.strip()
+            direction = next(
+                (value for value in ("Deficient", "Excess") if seg_lower.startswith(value.lower())),
+                seg.strip(),
+            )
+            result[matched_chakra] = direction
 
     # Anything in chakra_list not resolved by the compound parse falls back
     # to the raw shared string rather than being silently dropped — callers

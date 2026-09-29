@@ -132,6 +132,9 @@ def test_N_extraction_prompt_is_unchanged():
          "ragas, or assign therapeutic meaning. Preserve negation, historical statements,\n"
          "uncertainty, intensity, timing, context, triggers, impact and coping. If the\n"
          "statement is generic or unrelated to a canonical indicator, keep it as context\n"
-         "or other rather than inventing a symptom. Return only the requested structured\n"
-         "schema.").encode()).hexdigest()
+         "or other rather than inventing a symptom. For polarity, use positive when the\n"
+         "patient endorses or reports the symptom, emotion, or behaviour as present; use\n"
+         "negative only when the patient explicitly denies or says it is absent; use\n"
+         "neutral or uncertain when presence cannot be established. Return only the\n"
+         "requested structured schema.").encode()).hexdigest()
     assert "Do not diagnose, infer chakras" in build_extraction_prompt("x")

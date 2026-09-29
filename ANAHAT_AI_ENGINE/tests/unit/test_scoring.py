@@ -13,8 +13,14 @@ def test_diminishing_returns_and_all_seven_chakras():
     ev1=make_ev('a','r1','SYM-001'); ev2=make_ev('b','r2','SYM-001')
     report=se.score([ev1,ev2],assessed_quadrants=set(kb.quadrant_names))
     assert len(report.results)==7
+    assert any(x.presence_score > 0 for x in report.results)
     sacral=next(x for x in report.results if x.chakra=='Sacral Chakra'); assert sacral.presence_score <= 1
 
 def test_no_evidence_is_unresolved_when_assessment_incomplete():
     kb=KnowledgeBase().load_directory('knowledge_base/ANAHAT_KnowledgeBase_v3'); report=ScoringEngine(kb).score([],assessed_quadrants={'Nature'})
     assert all(r.status=='UNRESOLVED' for r in report.results)
+
+def test_compound_indicator_state_is_normalized_for_scoring():
+    kb=KnowledgeBase().load_directory('knowledge_base/ANAHAT_KnowledgeBase_v3')
+    anxiety_root=next(i for i in kb.indicators if i.indicator_id=='SYM-009' and i.chakra=='Root Chakra')
+    assert anxiety_root.state_raw == 'Deficient'

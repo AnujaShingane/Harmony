@@ -97,7 +97,10 @@ class LocalOllamaProvider(LLMProvider):
                     "content": (
                         "Extract only details explicitly stated in the patient response. "
                         "Do not diagnose, infer chakras, or recommend treatment. Return "
-                        "only an object matching the supplied JSON schema."
+                        "only an object matching the supplied JSON schema. For polarity, "
+                        "use positive when the patient reports the symptom, emotion, or "
+                        "behaviour as present; use negative only for an explicit denial "
+                        "or absence."
                     ),
                 },
                 {
