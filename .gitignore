@@ -1,38 +1,13 @@
-# Environment and secrets
 .env
 .env.*
 !.env.example
-
-# Dependencies and generated output
+**/.env
+**/.env.*
+!**/.env.example
 node_modules/
+**/node_modules/
 dist/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-.venv_*/
-
-# Local tooling and OS files
-.vscode/
-.DS_Store
-Thumbs.db
-
-# Local Python environment
-ANAHAT_AI_ENGINE/venv/
-
-# Local archives
-*.zip
-
-
-.env
-*.env
-
-
-# Frontend generated files
-frontend/node_modules/
-frontend/dist/
-frontend-updated/
-
-# Root npm files
-/package-lock.json
-
+**/dist/
+engine/.venv/
+**/__pycache__/
+**/.pytest_cache/

@@ -1,6 +1,5 @@
 import { AnahatAssessment, AnahatBaseline } from './anahatModels.js';
-import { engine, EngineError, QUADRANTS, OPENING_SETS, BASELINE_FIELDS } from './engineClient.js';
-import { openingSetsFromKb } from './nadikaService.js';
+import { engine, EngineError, QUADRANTS, BASELINE_FIELDS } from './engineClient.js';
 import { User, PatientProfile, Appointment } from '../models/postgres/index.js';
 import { Prescription } from '../models/mongo/Prescription.js';
 import { ReportHistory, ActivityPlan, PatientNotification, AuditLog, PatientMeta } from '../models/mongo/patientData.js';
@@ -104,14 +103,21 @@ async function withEngine(doc, fn) {
 // ---- reference ------------------------------------------------------------
 
 export async function health() {
-  try { return { ok: true, url: engine.url, engine: await engine.health() }; }
+  try {
+    const status = await engine.health();
+    return { ok: status?.status === 'ok', aiReady: status?.ai_ready === true,
+      url: engine.url, engine: status };
+  }
   catch (err) { return { ok: false, url: engine.url, message: err.message }; }
 }
 
 export async function reference() {
   let chakras = ['Root Chakra', 'Sacral Chakra', 'Solar Plexus Chakra', 'Heart Chakra', 'Throat Chakra', 'Third Eye Chakra', 'Crown Chakra'];
   try { const r = await engine.reference(); if (r?.chakras?.length) chakras = r.chakras; } catch { /* engine offline: canonical fallback list */ }
-  return { quadrants: QUADRANTS, openingSets: openingSetsFromKb(OPENING_SETS), baselineFields: BASELINE_FIELDS, chakras, safetyTiers: ['CLEAR', 'ESCALATE'], clinicalValidation: false };
+  // Opening styles come from the engine (KB assessments folder); never from local files.
+  let openingSets = [];
+  try { const o = await engine.openingStyles(); openingSets = (o.styles || []).map((x) => ({ set_id: x.id, name: x.name, recommended_for: x.recommended_for, questionCount: x.question_count })); } catch { /* engine offline: therapist cannot start an opening until it is back */ }
+  return { quadrants: QUADRANTS, openingSets, baselineFields: BASELINE_FIELDS, chakras, safetyTiers: ['CLEAR', 'AMBER', 'ESCALATE'], clinicalValidation: false };
 }
 
 // ---- baseline (step 2) ----------------------------------------------------
@@ -204,7 +210,7 @@ export async function setContext(user, doc, context) {
 export async function selectOpening(user, doc, setId) {
   assertTherapistOwner(user, doc); assertOpen(doc);
   if (doc.openingSetId === setId && doc.openingQuestions.length) return { opening: { set_id: setId, questions: doc.openingQuestions }, assessment: toPublic(doc) };
-  const r = await withEngine(doc, () => engine.opening(doc.engineSessionId));
+  const r = await withEngine(doc, () => engine.opening(doc.engineSessionId, setId));
   doc.openingSetId = setId; doc.openingQuestions = r.questions || []; doc.stage = r.stage; await doc.save();
   await audit('anahat.opening.selected', user.id, { assessmentId: doc._id, setId });
   return { opening: { set_id: setId, questions: doc.openingQuestions }, assessment: toPublic(doc) };
@@ -258,17 +264,32 @@ export async function submitResponse(user, doc, { text, questionId, question, qu
     : engine.respond(doc.engineSessionId, { text, question_id: questionId || null, quadrant: quadrant || null }));
   const status = r.status === 'ESCALATE' ? 'SAFETY_ESCALATION' : r.status;
   const safety = r.safety || (r.status === 'ESCALATE' ? { status: 'ESCALATE' } : { status: 'CLEAR' });
+  const amber = safety.level === 'AMBER' || safety.status === 'AMBER';
   const responseId = r.response_id || `opening_${Date.now()}`;
   const candidates = r.candidates || [];
   doc.transcript.push({ requestId: requestId || null, question: question || null, questionId: questionId || null, quadrant: quadrant || null, text, responseId, status, safety, candidateCount: candidates.length, at: new Date() });
   doc.candidatesByResponse = { ...(doc.candidatesByResponse || {}), [responseId]: { status, response_id: responseId, extraction: r.extraction || null, candidates, safety } };
   doc.markModified('candidatesByResponse');
+  // The engine now turns validated indicators extracted from patient session
+  // responses into confirmed session evidence immediately. Persist that
+  // evidence with the assessment so the existing scoring path can consume it
+  // without a separate Confirm/Reject action.
+  for (const evidence of r.evidence || []) {
+    if (!doc.evidence.some((item) => item.candidate_id === evidence.candidate_id)) {
+      doc.evidence.push({ ...evidence, clarifications: [] });
+    }
+  }
   if (status === 'SAFETY_ESCALATION') {
     // Product-level response: record, audit, notify, surface. Never hidden.
     doc.safetyEvents.push({ responseId, safety, at: new Date(), acknowledged: false });
     doc.status = 'escalated'; doc.stage = 'safety_escalation';
     await audit('anahat.safety.escalation', user.id, { assessmentId: doc._id, responseId, safety });
   } else {
+    if (amber) {
+      // AMBER: assessment continues, the therapist is alerted and automatic deep-dive pauses until acknowledged.
+      doc.safetyEvents.push({ responseId, safety, at: new Date(), acknowledged: false });
+      await audit('anahat.safety.amber', user.id, { assessmentId: doc._id, responseId, safety });
+    }
     doc.stage = r.stage || (openingResponse ? 'quadrant_recommendation' : 'evidence_review');
   }
   await doc.save();
@@ -280,6 +301,10 @@ export async function submitResponse(user, doc, { text, questionId, question, qu
 // stage are untouched — this is application state only.
 export async function acknowledgeSafety(user, doc, { note, continueAssessment }) {
   assertTherapistOwner(user, doc);
+  // Tell the engine too: a RED escalation stays in force there until a therapist explicitly clears it.
+  if (doc.engineSessionId && doc.status !== 'engine_session_lost') {
+    await withEngine(doc, () => engine.safetyAck(doc.engineSessionId, { therapist_note: note || null, resume: !!continueAssessment }));
+  }
   doc.safetyEvents = doc.safetyEvents.map((e) => ({ ...e, acknowledged: true, note: e.acknowledged ? e.note : (note || ''), acknowledgedAt: e.acknowledgedAt || new Date() }));
   doc.markModified('safetyEvents');
   doc.status = continueAssessment ? 'in_progress' : 'abandoned';
@@ -309,6 +334,48 @@ export async function resolveEvidence(user, doc, evidenceId, body) {
   doc.evidence = doc.evidence.map((e) => (e.evidence_id === evidenceId ? { ...e, ...r } : e));
   doc.markModified('evidence'); await doc.save();
   await audit('anahat.evidence.resolved', user.id, { assessmentId: doc._id, evidenceId, selected_chakra: body.selected_chakra });
+  return r;
+}
+
+// Question paging (engine): next unanswered questions for a quadrant; the engine reports when a quadrant
+// is exhausted and which quadrant to move to (no more "out of questions").
+export async function nextQuestions(user, doc, quadrant, limit) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  return withEngine(doc, () => engine.nextQuestions(doc.engineSessionId, quadrant, limit));
+}
+
+export async function completeQuadrant(user, doc, quadrant) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  const r = await withEngine(doc, () => engine.completeQuadrant(doc.engineSessionId, quadrant));
+  await audit('anahat.quadrant.completed', user.id, { assessmentId: doc._id, quadrant });
+  return r;
+}
+
+// Deep dive (engine): missing details, capped per evidence, stops on therapist stop / safety hold.
+export async function deepDive(user, doc, stop) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  return withEngine(doc, () => engine.deepDive(doc.engineSessionId, stop));
+}
+
+export async function answerDeepDive(user, doc, body) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  const r = await withEngine(doc, () => engine.deepDiveAnswer(doc.engineSessionId, { evidence_id: body.evidence_id, field: body.field, value: body.value, raw_text: body.raw_text || null }));
+  if (r.evidence) { doc.evidence = doc.evidence.map((e) => (e.evidence_id === body.evidence_id ? { ...e, ...r.evidence } : e)); doc.markModified('evidence'); await doc.save(); }
+  await audit('anahat.deepdive.answered', user.id, { assessmentId: doc._id, evidenceId: body.evidence_id, field: body.field });
+  return r;
+}
+
+export async function resolveContradiction(user, doc, body) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  const r = await withEngine(doc, () => engine.resolveContradiction(doc.engineSessionId, { keep_evidence_id: body.keep_evidence_id, therapist_note: body.therapist_note || null }));
+  await audit('anahat.contradiction.resolved', user.id, { assessmentId: doc._id, kept: body.keep_evidence_id });
+  return r;
+}
+
+// Result window data: per-chakra status, scores, confidence, coverage, trace and open items.
+export async function result(user, doc) {
+  assertTherapistOwner(user, doc);
+  const r = await withEngine(doc, () => engine.result(doc.engineSessionId));
   return r;
 }
 

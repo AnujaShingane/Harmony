@@ -12,7 +12,7 @@ const wrap = (fn) => async (req, res) => {
     if (err instanceof svc.AppError || err instanceof nadika.NadikaError) return res.status(err.status).json({ message: err.message, code: err.code });
     if (err instanceof EngineError) {
       const message = err.infrastructure
-        ? `The AI engine is not fully configured (${err.message}). Check GEMINI_API_KEY, Qdrant and the embedding model on the engine.`
+        ? `The AI engine is not fully configured (${err.message}). Check the LLM provider key (e.g. MISTRAL_API_KEY), Qdrant and the embedding model on the engine.`
         : err.status === 503 ? 'The AI engine is not reachable right now. Your assessment is saved — try again once it is back.'
         : err.message;
       return res.status(err.status === 503 ? 503 : 502).json({ message, code: err.infrastructure ? 'ENGINE_NOT_CONFIGURED' : 'ENGINE_ERROR', detail: err.detail });
@@ -42,6 +42,12 @@ export const submitResponse = withDoc((req, _res, doc) => svc.submitResponse(req
 export const acknowledgeSafety = withDoc((req, _res, doc) => svc.acknowledgeSafety(req.user, doc, req.body));
 export const confirmCandidate = withDoc((req, _res, doc) => svc.confirmCandidate(req.user, doc, req.params.candidateId, req.body));
 export const resolveEvidence = withDoc((req, _res, doc) => svc.resolveEvidence(req.user, doc, req.params.evidenceId, req.body));
+export const nextQuestions = withDoc((req, _res, doc) => svc.nextQuestions(req.user, doc, req.query.quadrant, req.query.limit));
+export const completeQuadrant = withDoc((req, _res, doc) => svc.completeQuadrant(req.user, doc, req.body.quadrant));
+export const deepDive = withDoc((req, _res, doc) => svc.deepDive(req.user, doc, req.query.stop === 'true'));
+export const answerDeepDive = withDoc((req, _res, doc) => svc.answerDeepDive(req.user, doc, req.body));
+export const resolveContradiction = withDoc((req, _res, doc) => svc.resolveContradiction(req.user, doc, req.body));
+export const result = withDoc((req, _res, doc) => svc.result(req.user, doc));
 export const score = withDoc((req, _res, doc) => svc.score(req.user, doc));
 export const decide = withDoc((req, _res, doc) => svc.decide(req.user, doc, req.body.stop));
 export const recommendations = withDoc((req, _res, doc) => svc.recommendations(req.user, doc));
@@ -54,7 +60,7 @@ export const finalReport = withDoc((_req, _res, doc) => {
 });
 
 // ---- Nadika.AI (live session assistant + post-session scan) ---------------
-export const suggestNext = wrap((req) => nadika.suggestNext(req.user, req.params.sessionId));
+export const suggestNext = wrap((req) => nadika.suggestNext(req.user, req.params.sessionId, req.body || {}));
 export const getScan = wrap((req) => nadika.getScan(req.user, req.params.sessionId));
 export const chakraScan = wrap((req) => nadika.chakraScan(req.user, req.params.sessionId, req.body || {}));
 export const sendReport = wrap(async (req, res) => { res.status(201); return nadika.sendReport(req.user, req.body); });

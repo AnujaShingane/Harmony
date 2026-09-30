@@ -41,7 +41,7 @@ async function call(method, path, { body, query } = {}) {
     // session id is unknown. Flag it so the service can mark the record.
     err.sessionLost = /session not found/i.test(msg);
     // Provider/infra not configured (no Gemini key, Qdrant down, model missing)
-    err.infrastructure = /GEMINI_API_KEY|qdrant|embedding|LLM provider|retriever/i.test(msg);
+    err.infrastructure = /GEMINI_API_KEY|MISTRAL_API_KEY|qdrant|embedding|LLM provider|retriever|not configured/i.test(msg);
     throw err;
   }
   return data;
@@ -53,7 +53,18 @@ export const engine = {
   reference: () => call('GET', '/chakra/reference'),
   createSession: (body) => call('POST', '/assessment/sessions', { body }),
   baseline: (sid, body) => call('POST', `/assessment/sessions/${sid}/baseline`, { body }),
-  opening: (sid) => call('GET', `/assessment/sessions/${sid}/opening-questions`),
+  // Opening questions ALWAYS come from the engine (KB assessments folder). No style => the list of styles.
+  openingStyles: () => call('GET', '/assessment/opening-styles'),
+  opening: (sid, style) => call('GET', `/assessment/sessions/${sid}/opening-questions`, { query: { style } }),
+  skipOpening: (sid) => call('POST', `/assessment/sessions/${sid}/opening-skip`),
+  suggestQuestion: (body) => call('POST', '/assessment/kb/suggest-question', { body }),
+  nextQuestions: (sid, quadrant, limit) => call('GET', `/assessment/sessions/${sid}/questions/next`, { query: { quadrant, limit } }),
+  completeQuadrant: (sid, quadrant) => call('POST', `/assessment/sessions/${sid}/quadrants/complete`, { body: { quadrant } }),
+  deepDive: (sid, stop) => call('GET', `/assessment/sessions/${sid}/deep-dive`, { query: { stop: stop ? 'true' : undefined } }),
+  deepDiveAnswer: (sid, body) => call('POST', `/assessment/sessions/${sid}/deep-dive/answer`, { body }),
+  resolveContradiction: (sid, body) => call('POST', `/assessment/sessions/${sid}/contradictions/resolve`, { body }),
+  safetyAck: (sid, body) => call('POST', `/assessment/sessions/${sid}/safety/acknowledge`, { body }),
+  result: (sid) => call('GET', `/assessment/sessions/${sid}/result`),
   openingResponse: (sid, text) => call('POST', `/assessment/sessions/${sid}/opening-response`, { body: { text } }),
   quadrants: (sid, current_issue) => call('GET', `/assessment/sessions/${sid}/quadrants`, { query: { current_issue } }),
   selectQuadrant: (sid, quadrant) => call('POST', `/assessment/sessions/${sid}/quadrants/select`, { body: { quadrant } }),
@@ -79,11 +90,6 @@ export const engine = {
 export const QUADRANTS = [
   'Nature', 'Family', 'Social Circle', 'Personal Interests', 'Profession',
   'Lifestyle', 'Diet', 'Physical Nature', 'Medical & Therapeutic Background', 'Music Therapy Profile',
-];
-// Canonical opening prompt set used by the application: there is only one
-// fixed opening question set presented to the therapist.
-export const OPENING_SETS = [
-  { set_id: 'A', name: 'Opening Questions', recommended_for: ['Fixed opening assessment'] },
 ];
 export const BASELINE_FIELDS = [
   { key: 'stress', label: 'Stress', scale: '1-10' },

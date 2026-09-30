@@ -1,97 +1,21 @@
-import fs from 'fs';
-import path from 'path';
 import mongoose from 'mongoose';
 import { LiveSession, ReportHistory, PatientNotification, AuditLog } from '../models/mongo/patientData.js';
 import { AnahatBaseline } from './anahatModels.js';
-import { engine, EngineError, QUADRANTS } from './engineClient.js';
+import { engine, EngineError } from './engineClient.js';
 class AppError extends Error { constructor(message, status = 400, extra = {}) { super(message); this.status = status; Object.assign(this, extra); } }
 export { AppError as NadikaError };
 
 // ---------------------------------------------------------------------------
 // "Nadika.AI" — the in-session assistant + post-session chakra scan.
 //
-//  • suggestNext(): picks the next question from the ANAHAT knowledge base
-//    (fixed opening questions + quadrant question bank) using keyword routing
-//    on the patient's latest messages. Questions are never generated; only
-//    chosen. Read-only access to the engine's KB files.
+//  • suggestNext(): asks the ENGINE to pick the next question from the ANAHAT
+//    knowledge base (opening styles + quadrant question bank). Questions are
+//    never generated or read from files here; only chosen by the engine.
 //  • chakraScan(): after a session ends, feeds the patient's own words to the
 //    AI engine (safety → Gemini → BGE-M3/Qdrant → candidates), auto-records
 //    candidates as PROVISIONAL evidence and asks the engine to score all 7
 //    chakras. Result is therapist-only and clearly labelled provisional.
 // ---------------------------------------------------------------------------
-
-const KB_ROOT = process.env.ANAHAT_KB_PATH
-  || path.resolve(process.cwd(), '..', 'ANAHAT_AI_ENGINE', 'knowledge_base', 'ANAHAT_KnowledgeBase_v3', 'structured');
-
-let kbCache = null;
-function loadKb() {
-  if (kbCache) return kbCache;
-  const read = (f) => { try { return JSON.parse(fs.readFileSync(path.join(KB_ROOT, f), 'utf8')); } catch { return null; } };
-  const opening = read('opening_questions.json');
-  const bank = read('quadrant_question_bank.json');
-  const quadrants = Array.isArray(bank) ? bank : (bank?.quadrants || Object.values(bank || {}).find(Array.isArray) || []);
-  const fixedOpeningQuestions = (opening?.opening_questions?.questions || []).map((q) => ({ id: q.id, text: q.text, source: 'Opening Questions' }));
-  kbCache = {
-    openingQuestions: fixedOpeningQuestions,
-    quadrants: quadrants.map((q) => ({
-      name: q.name,
-      questions: (q.attributes_with_responses || []).map((a, i) => ({
-        id: `Q-${q.quadrant_id}-${i + 1}`, attribute: a.attribute,
-        text: `How would you describe your experience with ${String(a.attribute || '').toLowerCase()}?`,
-        source: `${q.name} question bank`,
-      })),
-    })),
-  };
-  return kbCache;
-}
-
-// Keyword routing: which quadrant a message most likely touches. This is a
-// UI convenience for choosing the next canonical question — it never feeds
-// scoring or evidence.
-const ROUTES = [
-  ['Family', ['family', 'mother', 'father', 'parent', 'wife', 'husband', 'spouse', 'child', 'son', 'daughter', 'home', 'marriage', 'sibling', 'brother', 'sister']],
-  ['Social Circle', ['friend', 'social', 'people', 'alone', 'lonely', 'colleague', 'community', 'relationship', 'partner']],
-  ['Profession', ['work', 'job', 'office', 'boss', 'career', 'deadline', 'salary', 'business', 'study', 'exam', 'college', 'school']],
-  ['Lifestyle', ['sleep', 'routine', 'phone', 'screen', 'exercise', 'gym', 'walk', 'smoke', 'drink', 'alcohol', 'late', 'morning', 'night']],
-  ['Diet', ['eat', 'food', 'diet', 'meal', 'appetite', 'sugar', 'weight', 'hungry', 'coffee', 'tea']],
-  ['Physical Nature', ['pain', 'head', 'stomach', 'back', 'body', 'tired', 'fatigue', 'energy', 'breath', 'heart', 'ache', 'dizzy']],
-  ['Medical & Therapeutic Background', ['doctor', 'medicine', 'medication', 'therapy', 'diagnos', 'hospital', 'treatment', 'surgery', 'tablet']],
-  ['Music Therapy Profile', ['music', 'song', 'raag', 'raga', 'sing', 'listen', 'instrument', 'sound']],
-  ['Personal Interests', ['hobby', 'interest', 'enjoy', 'passion', 'read', 'paint', 'travel', 'play', 'art']],
-  ['Nature', ['angry', 'anger', 'calm', 'shy', 'introvert', 'extrovert', 'temper', 'patient', 'personality', 'mood']],
-];
-
-// The therapy workflow uses one fixed question set; the KB exposes the
-// canonical opening questions under opening_questions.questions.
-export function openingSetsFromKb(base) {
-  const opening = (() => { try { return JSON.parse(fs.readFileSync(path.join(KB_ROOT, 'opening_questions.json'), 'utf8')); } catch { return null; } })();
-  const fixed = opening?.opening_questions?.questions || [];
-  return (base || []).map((s) => ({
-    ...s,
-    questionCount: fixed.length,
-    unavailable: false,
-    kbNote: null,
-    kbPath: 'knowledge_base/ANAHAT_KnowledgeBase_v3/structured/opening_questions.json → opening_questions.questions',
-  }));
-}
-
-export function suggestFromKb(messages, alreadyAsked = []) {
-  const kb = loadKb();
-  const patientText = messages.filter((m) => m.from === 'patient').slice(-3).map((m) => String(m.text || '').toLowerCase()).join(' ');
-  const asked = new Set(alreadyAsked);
-  const scores = ROUTES.map(([q, kws]) => [q, kws.reduce((n, k) => n + (patientText.includes(k) ? 1 : 0), 0)]).sort((a, b) => b[1] - a[1]);
-  const [bestQ, hits] = scores[0] || [null, 0];
-
-  // No patient words yet → the first unasked fixed opening question.
-  if (!patientText.trim() || hits === 0) {
-    const q = kb.openingQuestions.find((x) => !asked.has(x.id)) || kb.openingQuestions[0];
-    return q ? { ...q, quadrant: null, reason: patientText.trim() ? 'No specific area detected yet — continue with the fixed opening questions.' : 'Session just started — begin with the fixed opening questions.' } : null;
-  }
-  const quad = kb.quadrants.find((x) => x.name === bestQ);
-  const q = quad?.questions.find((x) => !asked.has(x.id)) || quad?.questions[0];
-  if (!q) return null;
-  return { ...q, quadrant: bestQ, reason: `The patient's last replies touch on ${bestQ.toLowerCase()} (${hits} cue${hits === 1 ? '' : 's'}).` };
-}
 
 async function loadOwnedSession(user, sessionId) {
   if (!mongoose.isValidObjectId(sessionId)) throw new AppError('Session not found.', 404);
@@ -101,11 +25,12 @@ async function loadOwnedSession(user, sessionId) {
   return s;
 }
 
-export async function suggestNext(user, sessionId) {
+export async function suggestNext(user, sessionId, { style } = {}) {
   const s = await loadOwnedSession(user, sessionId);
   const asked = (s.aiMessages || []).map((m) => m.questionId).filter(Boolean);
-  const suggestion = suggestFromKb(s.messages || [], asked);
-  if (!suggestion) throw new AppError('The ANAHAT question bank could not be read. Set ANAHAT_KB_PATH on the backend.', 503);
+  const patientText = (s.messages || []).filter((m) => m.from === 'patient').slice(-3).map((m) => String(m.text || '')).join(' ');
+  const suggestion = await engine.suggestQuestion({ patient_text: patientText, asked_ids: asked, style: style || null });
+  if (!suggestion) throw new AppError('The engine has no further unasked question for this conversation.', 404);
   const answer = `${suggestion.text}`;
   await LiveSession.findByIdAndUpdate(sessionId, { $push: { aiMessages: { question: suggestion.reason, answer, questionId: suggestion.id, quadrant: suggestion.quadrant, source: suggestion.source, at: new Date() } } });
   return suggestion;
@@ -165,7 +90,9 @@ export async function chakraScan(user, sessionId, { force = false } = {}) {
         } catch { /* candidate not canonical → skipped by engine */ }
       }
     }
-    scan.report = scan.evidence.length ? await engine.chakraReport(es.session_id) : { results: [], supported_chakras: [], note: 'No canonical indicators were found in the transcript.' };
+    // NOTE: a transcript scan has no assessed quadrants, so the engine (correctly) reports low
+    // coverage and will not call any chakra imbalanced or balanced from it alone.
+    scan.report = scan.evidence.length ? { ...(await engine.chakraReport(es.session_id)), window: await engine.result(es.session_id) } : { results: [], supported_chakras: [], note: 'No canonical indicators were found in the transcript.' };
     scan.status = escalated ? 'escalated' : 'done';
     await scan.save();
     await AuditLog.create({ action: 'anahat.session.chakra_scan', actor: user.id, detail: { sessionId, evidence: scan.evidence.length, escalated } });

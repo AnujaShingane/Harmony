@@ -32,6 +32,12 @@ router.post('/assessments/:id/responses', ...therapist, asyncHandler(c.submitRes
 router.post('/assessments/:id/safety/acknowledge', ...therapist, asyncHandler(c.acknowledgeSafety));
 router.post('/assessments/:id/candidates/:candidateId/confirm', ...therapist, asyncHandler(c.confirmCandidate));
 router.post('/assessments/:id/evidence/:evidenceId/resolve', ...therapist, asyncHandler(c.resolveEvidence));
+router.get('/assessments/:id/questions/next', ...therapist, asyncHandler(c.nextQuestions));
+router.post('/assessments/:id/quadrants/complete', ...therapist, asyncHandler(c.completeQuadrant));
+router.get('/assessments/:id/deep-dive', ...therapist, asyncHandler(c.deepDive));
+router.post('/assessments/:id/deep-dive/answer', ...therapist, asyncHandler(c.answerDeepDive));
+router.post('/assessments/:id/contradictions/resolve', ...therapist, asyncHandler(c.resolveContradiction));
+router.get('/assessments/:id/result', ...therapist, asyncHandler(c.result));
 router.post('/assessments/:id/score', ...therapist, asyncHandler(c.score));
 router.post('/assessments/:id/decision', ...therapist, asyncHandler(c.decide));
 router.post('/assessments/:id/recommendations', ...therapist, asyncHandler(c.recommendations));
