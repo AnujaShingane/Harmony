@@ -133,16 +133,22 @@ def test_selected_quadrant_uses_rag_until_coverage_then_displays_final_result():
     svc.set_baseline(sid, BaselineCreate(stress=5, anxiety=5, mood=5, sleep_quality='Good', energy=5))
 
     selected = ['Lifestyle', 'Nature']
+    for quadrant in selected:
+        svc.select_quadrant(sid, quadrant)
     session_responses = 0
     for quadrant in selected:
-        page = svc.select_quadrant(sid, quadrant)
+        page = svc.next_questions(sid, quadrant, 1)
         for number in range(3):
             question = page['questions'][0]
             svc.process_response(sid, f'I experience abdominal cramps in this {quadrant} area, detail {number}.', question['id'], quadrant)
             session_responses += 1
             page = svc.next_questions(sid, quadrant, 1)
         assert page['normal_limit_reached'] is True
-        svc.complete_quadrant(sid, quadrant)
+        moved = svc.complete_quadrant(sid, quadrant)
+        if quadrant == selected[0]:
+            assert moved['quadrant'] == selected[1]
+            assert moved['question_count'] == 0
+            assert moved['questions'][0]['quadrant'] == selected[1]
 
     final = svc.finalize_session(sid)
     assert final['final_result']['summary']['display_message'] == 'No chakra imbalance identified from the confirmed evidence.'
@@ -151,3 +157,53 @@ def test_selected_quadrant_uses_rag_until_coverage_then_displays_final_result():
     assert set(final['assessment_context_summary']['evidence_by_quadrant']) == set(selected)
     assert svc.get(sid).patient_state['assessment_complete'] is True
     assert svc.get(sid).patient_state['final_chakra_evaluated'] is True
+
+
+def test_q3_waits_for_therapist_and_explicit_end_scores_full_session_without_forcing_other_quadrants():
+    class EmptyLLM:
+        def extract_semantics(self, text, context=None):
+            return SemanticExtraction(concepts=[])
+
+        def validate_candidates(self, text, concept, candidates):
+            return CandidateValidation(judgements=[])
+
+    class EmptyRetriever:
+        def search(self, query, top_k=None):
+            return []
+
+    kb = KnowledgeBase().load_directory('knowledge_base/ANAHAT_KnowledgeBase_v3')
+    svc = AssessmentService(kb=kb, llm=EmptyLLM(), retriever=EmptyRetriever())
+    sid = svc.create_session(AssessmentCreate(
+        patient_id='explicit-end-flow', communication_preferences={'age': 35, 'occupation': 'Teacher'}
+    )).session_id
+    svc.set_baseline(sid, BaselineCreate(stress=4, anxiety=3, mood=6, sleep_quality='Good', energy=6))
+    opening = 'The patient feels supported by friends and has stable sleep.'
+    svc.submit_opening_response(sid, opening)
+    page = svc.select_quadrant(sid, 'Nature')
+    question_ids = []
+    for number in range(3):
+        question = page['questions'][0]
+        question_ids.append(question['id'])
+        svc.process_response(sid, f'Answer {number + 1}', question['id'], 'Nature')
+        page = svc.next_questions(sid, 'Nature', 1)
+
+    ctx = svc.get(sid)
+    assert page['normal_limit_reached'] is True
+    assert page['assessment_status'] == 'awaiting_therapist_decision'
+    assert ctx.patient_state['assessment_status'] == 'awaiting_therapist_decision'
+    assert ctx.quadrants['Nature']['completed'] is False
+    assert ctx.patient_state['selected_quadrant_names'] == ['Nature']
+    assert len(ctx.responses) == 4  # opening plus three normal quadrant answers
+
+    def unexpected_raag(*args, **kwargs):
+        raise AssertionError('Raag inference must be skipped without a supported chakra')
+
+    svc.recommendations = unexpected_raag
+    final = svc.finalize_session(sid)
+    assert final['assessment_context_summary']['total_responses'] == 4
+    assert final['assessment_context_summary']['completed_quadrants'] == ['Nature']
+    assert final['final_result']['summary']['display_message'] == 'No chakra imbalance identified from the confirmed evidence.'
+    assert final['raga']['status'] == 'SKIPPED_NO_SUPPORTED_CHAKRA'
+    assert final['raga']['candidates'] == []
+    assert svc.get(sid).patient_state['final_assessment_context']['opening_responses'] == [opening]
+    assert [response.question_id for response in svc.get(sid).responses[-3:]] == question_ids

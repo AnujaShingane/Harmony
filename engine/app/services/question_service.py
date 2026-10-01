@@ -173,7 +173,12 @@ class QuestionService:
                     found = True
                     flush()
                     current_label, current_body = "patient response", ([body] if body else [])
-                elif label in labels or label in ignored:
+                elif label in ignored:
+                    found = True
+                    flush()
+                    add("demographic context " + label, body, vote=label != "city")
+                    current_label, current_body = "section", []
+                elif label in labels:
                     found = True
                     flush()
                     current_label, current_body = label, ([body] if body else [])
@@ -204,8 +209,12 @@ class QuestionService:
             add("baseline ratings", baseline, vote=True)
         if isinstance(demographics, dict):
             for key, value in demographics.items():
-                if key not in {"patient_id", "language", "communication_preferences"}:
-                    add("demographic context " + str(key), value, vote=False)
+                if key == "communication_preferences" and isinstance(value, dict):
+                    for detail, detail_value in value.items():
+                        if detail not in {"name", "patient_id"}:
+                            add("demographic context " + str(detail), detail_value)
+                elif key not in {"patient_id", "language"}:
+                    add("demographic context " + str(key), value)
         return evidence
 
     def _semantic_evidence(self, quadrants, evidence):

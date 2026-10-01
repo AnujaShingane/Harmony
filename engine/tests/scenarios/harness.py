@@ -80,6 +80,9 @@ def say(svc, sid, text, quadrant=None, question_id=None, confirm=True):
 
 def cover_all_quadrants(svc, sid):
     for name in kb().quadrant_names:
+        # This helper marks fixture coverage directly; production completion
+        # requires three recorded normal answers per quadrant.
+        svc._q_state(svc._ctx(sid), name)["normal_question_count"] = 3
         svc.complete_quadrant(sid, name)
 
 

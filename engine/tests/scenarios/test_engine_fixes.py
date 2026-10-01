@@ -65,19 +65,71 @@ def test_duplicate_kb_attribute_is_asked_once_without_touching_the_kb():
     assert len(asked) == len(set(asked)) and len(asked) <= len(names)
 
 
-def test_quadrant_without_rag_hits_does_not_fall_back_to_a_fixed_question_queue():
+def test_quadrant_without_rag_hits_uses_exact_category_question_bank_fallback():
     svc, sid = make_session({}, {})
     page = svc.select_quadrant(sid, "Nature")
-    assert page["exhausted"] is True
+    assert page["exhausted"] is False
+    assert page["questions"]
+    assert page["questions"][0]["quadrant"] == "Nature"
+    assert page["retrieval_status"] == "FALLBACK_RETRIEVED"
+
+
+def test_question_bank_rag_alignment_must_match_the_requested_quadrant():
+    svc, sid = make_session({}, {})
+
+    class QuestionRetriever:
+        def search(self, query, top_k=None):
+            return [{"payload": {
+                "source": "rag/question_bank/family.md",
+                "text": "quadrant_alignment: family\n- What family question should not be asked in Nature?"
+            }}]
+
+    svc.question_retriever = QuestionRetriever()
+    page = svc.select_quadrant(sid, "Nature")
+    assert page["questions"][0]["quadrant"] == "Nature"
+    assert page["retrieval_status"] == "FALLBACK_RETRIEVED"
+    assert "family" not in page["questions"][0]["question"].lower()
+
+
+def test_zero_question_retrieval_never_completes_the_quadrant():
+    svc, sid = make_session({}, {})
+    svc.questions.next_questions = lambda quadrant, answered_ids=(), limit=3: {
+        "quadrant": quadrant, "questions": [], "remaining": 0, "total": 0, "exhausted": True
+    }
+    page = svc.select_quadrant(sid, "Nature")
     assert page["questions"] == []
-    assert page["total"] > 0  # assessment needs exist, but the retriever supplied no eligible question
+    assert page["quadrant_status"] == "NO_RELEVANT_QUESTION_FOUND"
+    assert svc.get(sid).quadrants["Nature"]["completed"] is False
+    with pytest.raises(ValueError, match="retrieval failed"):
+        svc.complete_quadrant(sid, "Nature")
 
 
-def test_all_quadrants_covered_points_to_result():
+def test_quadrant_recommendation_waits_for_and_receives_all_session_context():
+    svc, sid = make_session({}, {})
+    svc.get(sid).demographics["communication_preferences"] = {"age": 34, "occupation": "Teacher"}
+    with pytest.raises(ValueError, match="opening responses"):
+        svc.recommend_quadrants(sid)
+
+    answer = "My family and friends support me when I feel stressed."
+    svc.submit_opening_response(sid, answer)
+    captured = {}
+    svc.questions.recommend_quadrants = lambda **kwargs: captured.update(kwargs) or []
+    assert svc.recommend_quadrants(sid) == []
+    assert captured["opening_answers"] == [answer]
+    assert captured["baseline"] == svc.get(sid).baseline
+    assert captured["demographics"] == svc.get(sid).demographics
+    evidence = QuestionService._recommendation_evidence(
+        captured["current_issue"], captured["opening_answers"], captured["baseline"], captured["demographics"], [])
+    assert any(item["label"] == "opening response" and answer in item["text"] for item in evidence)
+    assert any(item["label"] == "demographic context age" for item in evidence)
+
+
+def test_normal_passes_wait_for_therapist_even_when_all_quadrants_are_covered():
     svc, sid = make_session({}, {})
     cover_all_quadrants(svc, sid)
     page = svc.next_questions(sid, "Nature")
-    assert page["all_quadrants_covered"] is True
+    assert page["normal_limit_reached"] is True
+    assert page["assessment_status"] == "awaiting_therapist_decision"
 
 
 def test_routing_uses_embeddings_when_available_and_labels_fallback():
@@ -136,6 +188,7 @@ PATIENT RESPONSE to opening: It makes it difficult for me to stay focused and pr
         raw_text="I feel tired and sleepy most of the time.",
         extraction={"concepts": [{"concept": name, "domain": "symptom", "polarity": "positive"}
                                 for name in extracted]}))
+    svc.skip_opening(sid)
     rec = svc.recommend_quadrants(sid, current_issue=issue)
     names = {item["quadrant"] for item in rec}
     assert names == {"Lifestyle", "Nature", "Medical & Therapeutic Background"}

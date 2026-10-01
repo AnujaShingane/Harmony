@@ -476,33 +476,55 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
     afterQuadrant(d, quadrant, Boolean(current?.deep));
   };
 
-  const promptEndSession = () => {
+  const promptEndSession = (quadrant = doc?.scope?.[quadrantCursor]) => {
     setPhase('decision');
-    nadika('All selected quadrants and requested deep dives are complete. End the session to run the final chakra evaluation using the full session history.', {
-      type: 'decision', noNext: true, allComplete: true
+    console.info('NORMAL PASS COMPLETE:', quadrant);
+    console.info('WAITING FOR THERAPIST DECISION');
+    console.info('AVAILABLE ACTIONS: END_SESSION, MOVE_QUADRANT, DEEP_DIVE');
+    nadika('The three normal questions for ' + quadrant + ' are complete. Choose what to do next.', {
+      type: 'decision', awaitingTherapistDecision: true, quadrant, assessmentStatus: 'awaiting_therapist_decision'
     });
   };
 
   const afterQuadrant = (d, requestedQuadrant = null, deepDive = false) =>
     run(deepDive ? 'Retrieving a deep dive question' : 'Retrieving the next assessment question', async () => {
       const currentQuadrant = requestedQuadrant || current?.quadrant || d.scope?.[quadrantCursor];
-      const ordered = currentQuadrant
-        ? [currentQuadrant, ...(d.scope || []).filter((q) => q !== currentQuadrant)]
-        : [...(d.scope || [])];
+      const ordered = currentQuadrant ? [currentQuadrant] : (d.scope || []).slice(quadrantCursor, quadrantCursor + 1);
 
       for (const quadrant of ordered) {
         const page = await anahat.nextQuestions(d.id, quadrant, 1, deepDive && quadrant === currentQuadrant);
-        if (page.normal_limit_reached) {
+        console.info('CURRENT QUADRANT:', quadrant);
+        console.info('NORMAL QUESTION COUNT:', page.question_count + '/3');
+        console.info('DEEP DIVE ENABLED:', Boolean(deepDive && quadrant === currentQuadrant));
+        if (deepDive && quadrant === currentQuadrant && page.reason) {
+          promptEndSession(quadrant);
+          return;
+        }
+        if (deepDive && !page.questions?.length && page.retrieval_status) {
           setPhase('decision');
-          nadika('The three-question pass for ' + quadrant + ' is complete. Move to the next selected quadrant, or explicitly request a deep dive here.', {
-            type: 'decision',
-            quadrant,
-            normalLimitReached: true
+          nadika('No further Deep Dive question was found for ' + quadrant + '. Choose whether to end the session or move to another quadrant.', {
+            type: 'decision', awaitingTherapistDecision: true, deepDiveExhausted: true, quadrant,
+            assessmentStatus: 'awaiting_therapist_decision'
           });
+          return;
+        }
+        if (!page.questions?.length && page.retrieval_status) {
+          console.error('QUESTION RETRIEVAL FAILED; QUADRANT MUST NOT BE MARKED COMPLETE:', quadrant, page.retrieval_status);
+          setPhase('retrieval_failure');
+          nadika('No relevant question could be retrieved for ' + quadrant + '. This quadrant remains incomplete; retry retrieval or review the selected scope.', {
+            type: 'retrieval_failure', quadrant, status: page.retrieval_status
+          });
+          return;
+        }
+        if (page.normal_limit_reached) {
+          setCurrent(null);
+          promptEndSession(quadrant);
           return;
         }
         const hit = page.questions?.[0];
         if (hit) {
+          console.info('RAG RETRIEVAL QUADRANT:', quadrant);
+          console.info('RAG SELECTED QUESTION:', hit.question || hit.text);
           setDoc(d);
           setQuadrantCursor(d.scope.indexOf(quadrant));
           setCurrent(null);
@@ -514,8 +536,12 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
           });
           return;
         }
-        setQuadrantCursor(d.scope.indexOf(quadrant));
-        await anahat.completeQuadrant(d.id, quadrant);
+        console.error('Question retrieval produced no question; quadrant remains incomplete:', quadrant, page);
+        setPhase('retrieval_failure');
+        nadika('Question retrieval returned no question for ' + quadrant + '. This quadrant remains incomplete.', {
+          type: 'retrieval_failure', quadrant, status: page.retrieval_status || 'NO_RELEVANT_QUESTION_FOUND'
+        });
+        return;
       }
 
       promptEndSession();
@@ -936,7 +962,6 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   // Deep dive.
 
   const deepDiveNext = (d, quadrant) => {
-    me('Deep dive in ' + quadrant);
     afterQuadrant(d, quadrant, true);
   };
   // Adaptive quadrant recommendation.
@@ -1066,10 +1091,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
                 );
 
                 return {
-                  recommended: [],
-                  all:
-                    ref?.quadrants ||
-                    []
+                  recommended: []
                 };
               }
             );
@@ -1148,10 +1170,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
             add[0]
           );
 
-        nadika(
-          `${add[0]} — ${qs.length} focused questions from the ANAHAT question bank.`
-        );
-
+        nadika('Starting question retrieval for ' + add[0] + '.');
         askNext(d, qs);
       }
     );
@@ -1167,7 +1186,13 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
         const cur =
           d.scope[quadrantCursor];
 
+        if (choice === 'retry') {
+          afterQuadrant(d, cur);
+          return;
+        }
+
         if (choice === 'deep') {
+          console.info('DEEP DIVE REQUESTED | CURRENT QUADRANT:', cur);
           me(
             `Deep dive in ${cur}`
           );
@@ -1185,14 +1210,43 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
             'Move to next selected quadrant'
           );
 
-          const nextIdx = d.scope.findIndex((q, i) => i > quadrantCursor);
-          await anahat.completeQuadrant(d.id, cur);
-          if (nextIdx < 0) {
-            promptEndSession();
+          const next = await anahat.completeQuadrant(d.id, cur);
+          const hit = next.questions?.[0];
+          if (!hit) {
+            if (next.status === 'COVERAGE_COMPLETE' || next.assessment_complete) {
+              setDoc(d);
+              const available = (ref?.quadrants || []).some((quadrant) => !(d.scope || []).includes(quadrant));
+              if (!available) {
+                setPhase('decision');
+                nadika('No additional quadrant is available to add. End the session or deep dive into ' + cur + '.', {
+                  type: 'decision', awaitingTherapistDecision: true, noMoreQuadrants: true, quadrant: cur,
+                  assessmentStatus: 'awaiting_therapist_decision'
+                });
+                return;
+              }
+              await suggestQuadrants(d);
+              return;
+            }
+            setPhase('retrieval_failure');
+            nadika('Question retrieval failed for the next selected quadrant. It remains incomplete.', {
+              type: 'retrieval_failure', quadrant: next.quadrant || next.completed_quadrant,
+              status: next.retrieval_status || next.quadrant_status || 'RETRIEVAL_FAILED'
+            });
             return;
           }
-          setQuadrantCursor(nextIdx);
-          afterQuadrant(d, d.scope[nextIdx]);
+          const nextQuadrant = next.quadrant || hit.quadrant;
+          console.info('MOVING FROM QUADRANT:', cur);
+          console.info('NEXT QUADRANT:', nextQuadrant);
+          console.info('RESET QUESTION COUNT');
+          console.info('RAG RETRIEVAL FOR:', nextQuadrant);
+          setQuadrantCursor(d.scope.indexOf(nextQuadrant));
+          setCurrent(null);
+          setPhase('question');
+          nadika('Moving to ' + nextQuadrant + '.', {
+            type: 'suggested',
+            quadrant: nextQuadrant,
+            items: [{ id: hit.id, text: hit.question || hit.text, quadrant: nextQuadrant, rag: true, deep: false }]
+          });
           return;
         }
         if (
@@ -1224,7 +1278,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
           );
 
           nadika(
-            `${suggestion} — ${quadrantQs(nd, suggestion).length} focused questions.`
+            `Starting question retrieval for ${suggestion}.`
           );
 
           askNext(
@@ -2332,6 +2386,22 @@ function CardView({
   const box =
     'rounded-2xl border border-black/5 bg-white p-4 shadow-sm';
 
+  if (card.type === 'retrieval_failure') {
+    return (
+      <div className={box}>
+        <p className="text-sm font-semibold text-amber-800">
+          {card.quadrant} remains incomplete ({card.status}). No question was available to ask.
+        </p>
+        <Opt on={phase === 'retrieval_failure'} onClick={() => decision('retry')}>
+          Retry question retrieval
+        </Opt>
+        <Opt on={phase === 'retrieval_failure'} onClick={suggestQuadrants}>
+          Review assessment areas
+        </Opt>
+      </div>
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Suggested questions
   // -------------------------------------------------------------------------
@@ -2457,28 +2527,14 @@ function CardView({
           </div>
         )}
 
-        <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap gap-2">
+        {current?.deep && <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap gap-2">
 
           <Opt
             on={
               phase ===
               'question'
             }
-            onClick={() =>
-              decision('deep')
-            }
-          >
-            Deep dive into this quadrant
-          </Opt>
-
-          <Opt
-            on={
-              phase ===
-              'question'
-            }
-            onClick={
-              suggestQuadrants
-            }
+            onClick={() => decision('next')}
           >
             Move to / add a new quadrant
           </Opt>
@@ -2496,7 +2552,7 @@ function CardView({
             End session
           </Opt>
 
-        </div>
+        </div>}
       </div>
     );
   }
@@ -3220,6 +3276,7 @@ function CardView({
     const active =
       phase ===
       'decision';
+    const awaitingTherapist = !!card.awaitingTherapistDecision;
 
     return (
       <div className={box}>
@@ -3227,34 +3284,27 @@ function CardView({
         <div className="flex flex-wrap gap-2">
 
           <Opt
-            on={
-              active &&
-              !card.noNext
-            }
-            onClick={() =>
-              decision('next')
-            }
+            on={active && (awaitingTherapist || card.noNext)}
+            primary
+            onClick={() => decision('end')}
           >
-            Move to next selected quadrant
+            End Session
           </Opt>
 
           <Opt
-            on={active}
+            on={active && (awaitingTherapist || !card.noNext) && !card.noMoreQuadrants}
+            onClick={() => decision('next')}
+          >
+            Move to / add a new quadrant
+          </Opt>
+
+          <Opt
+            on={active && (awaitingTherapist || !card.noNext) && !card.deepDiveExhausted}
             onClick={() =>
               decision('deep')
             }
           >
-            Deep dive in this quadrant
-          </Opt>
-
-          <Opt
-            on={active && card.noNext}
-            primary
-            onClick={() =>
-              decision('end')
-            }
-          >
-            End Session
+            Deep dive into this quadrant
           </Opt>
 
         </div>
