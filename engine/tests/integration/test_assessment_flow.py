@@ -16,7 +16,14 @@ class FakeLLM:
 class FakeResult:
     score=.95; payload={'indicator_id':'SYM-001','ailment':'Abdominal cramps','diagnostic_type':'ambiguous'}
 class FakeRetriever:
-    def search(self,q): return [FakeResult()]
+    def search(self,q,top_k=None):
+        if 'Current quadrant:' in q:
+            class QuestionResult:
+                score=.9
+                payload={'source':'rag/question_bank/lifestyle.md','text':
+                         'How often does this affect your daily routine?\nWhat helps you manage this area of your life?\nWhat change would make this area feel more supportive?'}
+            return [QuestionResult()]
+        return [FakeResult()]
 
 def test_end_to_end_patient_session_response_becomes_evidence_without_confirmation():
     kb=KnowledgeBase().load_directory('knowledge_base/ANAHAT_KnowledgeBase_v3'); svc=AssessmentService(kb=kb,llm=FakeLLM(),retriever=FakeRetriever())
@@ -98,21 +105,49 @@ def test_opening_response_route_completes_assessment_to_final_result(monkeypatch
     )
     assert selected.status_code == 200
 
-    response = client.post(
-        f'/assessment/sessions/{session_id}/responses',
-        json={'text': 'The abdominal cramps happen sometimes when I am stressed.', 'quadrant': 'Lifestyle'},
-    )
-    assert response.status_code == 200
-    assert response.json()['candidate_count'] == 1
-    assert len(response.json()['evidence']) == 1
-    assert response.json()['evidence'][0]['confirmation']['patient_confirmed'] is True
+    page = client.get(f'/assessment/sessions/{session_id}/questions/next', params={'quadrant': 'Lifestyle', 'limit': 1}).json()
+    for number in range(3):
+        question = page['questions'][0]
+        response = client.post(
+            f'/assessment/sessions/{session_id}/responses',
+            json={'text': f'I have abdominal cramps and this affects my daily routine, answer {number}.', 'quadrant': 'Lifestyle', 'question_id': question['id']},
+        )
+        assert response.status_code == 200
+        assert response.json()['candidate_count'] == 1
+        assert len(response.json()['evidence']) == 1
+        assert response.json()['evidence'][0]['confirmation']['patient_confirmed'] is True
+        if number < 2:
+            page = client.get(f'/assessment/sessions/{session_id}/questions/next', params={'quadrant': 'Lifestyle', 'limit': 1}).json()
+    completed = client.post(f'/assessment/sessions/{session_id}/quadrants/complete', json={'quadrant': 'Lifestyle'})
+    assert completed.status_code == 200
+    final = client.post(f'/assessment/sessions/{session_id}/end')
+    assert final.status_code == 200
+    assert final.json()['assessment_context_summary']['total_responses'] >= 4
+    assert 'final_result' in final.json() and 'chakra_report' in final.json() and 'raga' in final.json()
 
-    decision = client.post(f'/assessment/sessions/{session_id}/decision', params={'stop': 'true'})
-    assert decision.status_code == 200
-    assert decision.json()['stage'] == 'completed'
-    assert 'chakra_report' in decision.json()
 
-    recommendations = client.get(f'/recommendations/sessions/{session_id}')
-    assert recommendations.status_code == 200
-    assert 'chakra_report' in recommendations.json()
-    assert 'raga' in recommendations.json()
+def test_selected_quadrant_uses_rag_until_coverage_then_displays_final_result():
+    kb = KnowledgeBase().load_directory('knowledge_base/ANAHAT_KnowledgeBase_v3')
+    svc = AssessmentService(kb=kb, llm=FakeLLM(), retriever=FakeRetriever())
+    sid = svc.create_session(AssessmentCreate(patient_id='rag-flow-patient')).session_id
+    svc.set_baseline(sid, BaselineCreate(stress=5, anxiety=5, mood=5, sleep_quality='Good', energy=5))
+
+    selected = ['Lifestyle', 'Nature']
+    session_responses = 0
+    for quadrant in selected:
+        page = svc.select_quadrant(sid, quadrant)
+        for number in range(3):
+            question = page['questions'][0]
+            svc.process_response(sid, f'I experience abdominal cramps in this {quadrant} area, detail {number}.', question['id'], quadrant)
+            session_responses += 1
+            page = svc.next_questions(sid, quadrant, 1)
+        assert page['normal_limit_reached'] is True
+        svc.complete_quadrant(sid, quadrant)
+
+    final = svc.finalize_session(sid)
+    assert final['final_result']['summary']['display_message'] == 'No chakra imbalance identified from the confirmed evidence.'
+    assert final['assessment_context_summary']['total_responses'] == session_responses
+    assert set(final['assessment_context_summary']['completed_quadrants']) == set(selected)
+    assert set(final['assessment_context_summary']['evidence_by_quadrant']) == set(selected)
+    assert svc.get(sid).patient_state['assessment_complete'] is True
+    assert svc.get(sid).patient_state['final_chakra_evaluated'] is True

@@ -31,7 +31,9 @@ def test_selecting_a_quadrant_alone_does_not_count_as_assessed():
     svc, sid = make_session({}, {})
     for q in kb().quadrant_names:
         svc.select_quadrant(sid, q)
-    assert svc.final_result(sid)["summary"]["balanced"] == []
+    ctx = svc.get(sid)
+    assert svc.assessed_quadrants(ctx) == set()
+    assert ctx.patient_state["assessment_complete"] is False
 
 
 # ---- quote verification --------------------------------------------------------------------------
@@ -63,17 +65,12 @@ def test_duplicate_kb_attribute_is_asked_once_without_touching_the_kb():
     assert len(asked) == len(set(asked)) and len(asked) <= len(names)
 
 
-def test_quadrant_exhaustion_recommends_next_quadrant_instead_of_running_out():
+def test_quadrant_without_rag_hits_does_not_fall_back_to_a_fixed_question_queue():
     svc, sid = make_session({}, {})
     page = svc.select_quadrant(sid, "Nature")
-    seen = 0
-    while not page["exhausted"]:
-        for q in page["questions"]:
-                svc.process_response(sid, "I have conflicts with my friends", q["id"], "Nature"); seen += 1
-        page = svc.next_questions(sid, "Nature")
-    assert seen == page["total"] and page["questions"] == []
-    assert page["recommended_quadrants"] and "Nature" not in [r["quadrant"] for r in page["recommended_quadrants"]]
-    assert "No" not in page["message"][:2]
+    assert page["exhausted"] is True
+    assert page["questions"] == []
+    assert page["total"] > 0  # assessment needs exist, but the retriever supplied no eligible question
 
 
 def test_all_quadrants_covered_points_to_result():

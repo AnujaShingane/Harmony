@@ -42,6 +42,7 @@ _OPEN_REQUIRES_VALIDATION = [
     "direction gray-zone handling (0.10-0.15)",
     "Emergency contact numbers in KB are marked 'requires live verification before production'",
 ]
+NORMAL_QUADRANT_QUESTION_LIMIT = 3
 
 
 def _norm(text: str) -> str:
@@ -89,7 +90,16 @@ class AssessmentService:
         return ctx
 
     def _q_state(self, ctx, quadrant):
-        return ctx.quadrants.setdefault(quadrant, {"answered_question_ids": [], "response_ids": [], "completed": False})
+        state = ctx.quadrants.setdefault(quadrant, {})
+        state.setdefault("answered_question_ids", [])
+        state.setdefault("response_ids", [])
+        state.setdefault("normal_question_count", 0)
+        state.setdefault("deep_dive_question_count", 0)
+        state.setdefault("normal_completed", False)
+        state.setdefault("deep_dive_active", False)
+        state.setdefault("rag_exhausted", False)
+        state.setdefault("completed", False)
+        return state
 
     def _guard_safety(self, ctx):
         """RED interrupts the assessment: nothing else is processed until a therapist clears it."""
@@ -133,6 +143,11 @@ class AssessmentService:
         sid = str(uuid4()); ctx = PatientContext()
         ctx.demographics = {"patient_id": request.patient_id, "language": request.language,
                             "communication_preferences": request.communication_preferences}
+        ctx.patient_state.update({
+            "selected_quadrants": None, "selected_quadrant_names": [], "completed_quadrants": [],
+            "current_quadrant": None, "current_question": None, "asked_questions": [],
+            "rag_retrieval_count": 0, "assessment_complete": False, "final_chakra_evaluated": False,
+        })
         ctx.stage = AssessmentStage.BASELINE.value
         ctx.audit("SESSION_CREATED", stage=ctx.stage)
         self._sessions[sid] = ctx
@@ -159,6 +174,7 @@ class AssessmentService:
         questions = self.questions.opening_questions(style)
         ctx.patient_state["opening_style"] = style.upper()
         ctx.patient_state["opening_questions"] = [q["text"] for q in questions]
+        ctx.patient_state["opening_question_ids"] = [q["id"] for q in questions]
         ctx.audit("OPENING_QUESTIONS_PRESENTED", style=style.upper())
         return {"session_id": sid, "title": "Opening Questions", "style": style.upper(),
                 "questions": questions, "therapist_may_skip_or_stop": True, "stage": ctx.stage}
@@ -184,6 +200,7 @@ class AssessmentService:
         response = ResponseService().create(text=text, question_id=question_id, quadrant=None)
         out = self._analyze(ctx, response, text, session_id=sid, weight_source="opening")
         ctx.patient_state["opening_response"] = text
+        ctx.patient_state.setdefault("opening_responses", []).append(text)
         ctx.audit("OPENING_RESPONSE_SUBMITTED", response_id=response.response_id)
         if out["status"] != "SAFETY_ESCALATION":
             ctx.stage = AssessmentStage.QUADRANT_RECOMMENDATION.value
@@ -396,6 +413,10 @@ class AssessmentService:
 
     def recommend_quadrants(self, sid, current_issue=None, opening_answers=None):
         ctx = self._ctx(sid)
+        # Selection is a session decision made from demographics, baseline and
+        # opening responses. Keep it stable while later answers update retrieval.
+        if ctx.patient_state.get("selected_quadrants") is not None:
+            return copy.deepcopy(ctx.patient_state["selected_quadrants"])
         concepts, texts = [], []
         for r in ctx.responses:
             texts.append(r.raw_text)
@@ -403,26 +424,45 @@ class AssessmentService:
                 if c.get("polarity") != "negative" and c.get("domain") in {"symptom", "emotion", "behaviour"}:
                     concepts.append(c["concept"])
         rec = self.questions.recommend_quadrants(
-            current_issue=current_issue or " ".join(texts), opening_answers=opening_answers,
+            current_issue=current_issue or ctx.patient_state.get("current_issue") or " ".join(texts),
+            opening_answers=opening_answers or ctx.patient_state.get("opening_responses", []),
             baseline=ctx.baseline, demographics=ctx.demographics, concepts=concepts,
             exhausted=self._exhausted(ctx), assessed=self.assessed_quadrants(ctx))
         ctx.patient_state["current_issue"] = current_issue
+        ctx.patient_state["selected_quadrants"] = copy.deepcopy(rec)
+        logging.getLogger("anahat.assessment.progress").info("RECOMMENDED QUADRANTS: %s", [item["quadrant"] for item in rec])
         ctx.audit("QUADRANT_RECOMMENDATION", recommendations=rec)
         return rec
 
     def select_quadrant(self, sid, quadrant):
         ctx = self._ctx(sid)
+        if ctx.patient_state.get("final_chakra_evaluated"):
+            raise ValueError("The assessment has ended")
         if quadrant not in self.kb.quadrant_names:
             raise ValueError(f"Unknown quadrant: {quadrant}")
         st = self._q_state(ctx, quadrant)
+        selected = ctx.patient_state.setdefault("selected_quadrant_names", [])
+        if quadrant not in selected:
+            selected.append(quadrant)
+            ctx.patient_state["selected_quadrant_names"] = selected
+        ctx.patient_state["assessment_complete"] = False
+        ctx.patient_state["final_chakra_evaluated"] = False
+        logging.getLogger("anahat.assessment.progress").info("SELECTED QUADRANTS: %s", selected)
         ctx.stage = AssessmentStage.PERSONALIZED_QUESTIONS.value
         ctx.patient_state["current_quadrant"] = quadrant
         ctx.audit("QUADRANT_SELECTED", quadrant=quadrant)
         return {**self._next_for(ctx, quadrant), "stage": ctx.stage}
 
-    def _next_for(self, ctx, quadrant, limit=3):
+    def _next_for(self, ctx, quadrant, limit=1, *, deep_dive=False):
         st = self._q_state(ctx, quadrant)
-        page = self.questions.next_questions(quadrant, st["answered_question_ids"], limit)
+        page = self._rag_question(ctx, quadrant, limit, deep_dive=deep_dive)
+        ctx.patient_state["current_question"] = page["questions"][0] if page.get("questions") else None
+        logging.getLogger("anahat.assessment.progress").info(
+            "CURRENT QUADRANT: %s | QUESTION COUNT: %s/3 | DEEP DIVE QUESTION COUNT: %s | CURRENT QUESTION: %s | COMPLETED QUADRANTS: %s | REMAINING QUADRANTS: %s",
+            quadrant, st["normal_question_count"], st["deep_dive_question_count"], ctx.patient_state["current_question"],
+            [q for q, state in ctx.quadrants.items() if state.get("completed")],
+            [q for q in ctx.patient_state.get("selected_quadrant_names", []) if not self._q_state(ctx, q).get("completed")],
+        )
         if st.get("completed"):
             page.update(questions=[], exhausted=True)
         if page["exhausted"]:
@@ -439,26 +479,152 @@ class AssessmentService:
             page["all_quadrants_covered"] = not remaining
         return page
 
-    def next_questions(self, sid, quadrant=None, limit=3):
+    def _rag_question(self, ctx, quadrant, limit=1, *, deep_dive=False):
+        """Retrieve validated question-bank chunks from the existing vector index.
+
+        The selected result is the question actually returned to the client; the
+        attribute queue is only used to identify outstanding needs and is never
+        used as a fallback sequence.
+        """
+        state = self._q_state(ctx, quadrant)
+        count = state["deep_dive_question_count"] if deep_dive else state["normal_question_count"]
+        if deep_dive and state["normal_question_count"] < NORMAL_QUADRANT_QUESTION_LIMIT:
+            return {"quadrant": quadrant, "questions": [], "remaining": 0, "total": count,
+                    "exhausted": True, "normal_limit_reached": False, "question_count": count,
+                    "deep_dive": True, "reason": "Deep dive is available after the normal three-question pass."}
+        if (state.get("completed") and not deep_dive) or (not deep_dive and count >= NORMAL_QUADRANT_QUESTION_LIMIT):
+            state["normal_completed"] = state["normal_completed"] or count >= NORMAL_QUADRANT_QUESTION_LIMIT
+            return {"quadrant": quadrant, "questions": [], "remaining": 0, "total": count,
+                    "exhausted": True, "normal_limit_reached": not deep_dive and count >= NORMAL_QUADRANT_QUESTION_LIMIT,
+                    "question_count": count, "deep_dive": deep_dive}
+        if deep_dive:
+            state["deep_dive_active"] = True
+            state["completed"] = False
+            ctx.patient_state["assessment_complete"] = False
+            ctx.patient_state["final_chakra_evaluated"] = False
+            logging.getLogger("anahat.assessment.progress").info(
+                "DEEP DIVE REQUESTED | CURRENT QUADRANT: %s | DEEP DIVE QUESTION COUNT: %s",
+                quadrant, state["deep_dive_question_count"] + 1,
+            )
+        asked = list(state.get("answered_question_ids", []))
+        question_text_by_id = ctx.patient_state.setdefault("question_text_by_id", {})
+        asked_text = [question_text_by_id[qid] for qid in asked if qid in question_text_by_id]
+        ctx.patient_state["asked_questions"] = list(dict.fromkeys(
+            [*ctx.patient_state.get("asked_questions", []), *asked_text]
+        ))
+        answer_by_question = {r.question_id: r.raw_text for r in ctx.responses if r.question_id in asked}
+        evidence = [e.indicator_term for e in ctx.evidence if e.status == EvidenceStatus.CONFIRMED and not e.superseded]
+        remaining = self.questions.next_questions(quadrant, asked, 100)
+        missing = [q.get("attribute", "") for q in remaining["questions"]]
+        query = "\n".join([
+            f"Current quadrant: {quadrant}",
+            f"Demographics: {ctx.demographics}", f"Baseline: {ctx.baseline}",
+            f"Opening responses: {ctx.patient_state.get('opening_responses', [])}",
+            f"Previous questions asked: {asked_text}", f"Previous patient answers: {list(answer_by_question.values())}",
+            f"Confirmed evidence: {evidence}", f"Remaining assessment needs: {missing}",
+        ])
+        question_retriever = getattr(self, "question_retriever", None) or self.retriever
+        if question_retriever:
+            try:
+                points = question_retriever.search(query, top_k=max(20, limit * 8))
+            except TypeError:
+                # Existing injected/test retrievers may expose the original
+                # single-argument search contract.
+                points = question_retriever.search(query)
+        else:
+            points = []
+        candidates = []
+        ctx.patient_state["rag_retrieval_count"] = ctx.patient_state.get("rag_retrieval_count", 0) + 1
+        for point in points:
+            payload = getattr(point, "payload", None) or (point.get("payload", {}) if isinstance(point, dict) else {})
+            body = payload.get("text", "")
+            # Only question-bank documents are eligible, and candidate question
+            # prompts must be recoverable from the returned chunk itself.
+            source = str(payload.get("source", payload.get("file_path", ""))).lower()
+            if "question_bank" not in source and "question_bank" not in str(payload).lower():
+                continue
+            for line in body.splitlines():
+                line = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip()
+                if "?" not in line or len(line) < 12:
+                    continue
+                qid = "RAG-" + hashlib.sha256(_norm(line).encode("utf-8")).hexdigest()[:16]
+                if qid in asked or any(_norm(line) == _norm(old) for old in asked_text):
+                    continue
+                if any(_norm(line) == _norm(c["question"]) for c in candidates):
+                    continue
+                candidates.append({"id": qid, "question": line, "quadrant": quadrant,
+                                   "source": source or "question_bank", "score": float(getattr(point, "score", 0) or 0)})
+        candidates.sort(key=lambda item: item["score"], reverse=True)
+        selected = candidates[0] if candidates else None
+        if not deep_dive:
+            state["rag_exhausted"] = selected is None
+        elif selected is None:
+            state["deep_dive_exhausted"] = True
+        if selected:
+            question_text_by_id[selected["id"]] = selected["question"]
+            ctx.patient_state.setdefault("question_mode_by_id", {})[selected["id"]] = "deep_dive" if deep_dive else "normal"
+            ctx.patient_state["current_question"] = selected
+            if deep_dive:
+                logging.getLogger("anahat.assessment.progress").info(
+                    "CURRENT QUADRANT: %s | DEEP DIVE QUESTION COUNT: %s | QUESTION: %s",
+                    quadrant, state["deep_dive_question_count"] + 1, selected["question"],
+                )
+            else:
+                logging.getLogger("anahat.assessment.progress").info(
+                    "CURRENT QUADRANT: %s | QUESTION COUNT: %s/3 | QUESTION: %s",
+                    quadrant, state["normal_question_count"] + 1, selected["question"],
+                )
+        logger = logging.getLogger("anahat.assessment.rag")
+        logger.info("RAG QUERY:\\n%s\\nCURRENT QUADRANT:\\n%s\\nRETRIEVED QUESTIONS:\\n%s\\nSELECTED QUESTION:\\n%s\\nQUESTIONS ALREADY ASKED:\\n%s\\nEVIDENCE AVAILABLE:\\n%s\\nNEXT QUESTION:\\n%s",
+                    query, quadrant, candidates, selected, asked, evidence, selected)
+        return {"quadrant": quadrant, "questions": [selected] if selected else [],
+                "remaining": max(0, len(missing) - (1 if selected else 0)), "total": len(missing),
+                "exhausted": selected is None, "retrieval_candidates": candidates,
+                "question_count": count, "normal_limit_reached": not deep_dive and count >= NORMAL_QUADRANT_QUESTION_LIMIT,
+                "deep_dive": deep_dive}
+
+    def next_questions(self, sid, quadrant=None, limit=3, deep_dive=False):
         ctx = self._ctx(sid)
         quadrant = quadrant or ctx.patient_state.get("current_quadrant")
         if not quadrant:
             raise ValueError("No quadrant selected yet")
         if quadrant not in self.kb.quadrant_names:
             raise ValueError(f"Unknown quadrant: {quadrant}")
-        return self._next_for(ctx, quadrant, limit)
+        return self._next_for(ctx, quadrant, limit, deep_dive=deep_dive)
 
     def complete_quadrant(self, sid, quadrant):
         ctx = self._ctx(sid)
         if quadrant not in self.kb.quadrant_names:
             raise ValueError(f"Unknown quadrant: {quadrant}")
-        self._q_state(ctx, quadrant)["completed"] = True
+        state = self._q_state(ctx, quadrant)
+        if (state["normal_question_count"] < NORMAL_QUADRANT_QUESTION_LIMIT
+                and not state.get("rag_exhausted")):
+            raise ValueError("A quadrant needs three normal answers, or no remaining RAG questions, before completion")
+        state["completed"] = True
+        state["deep_dive_active"] = False
+        completed = [q for q, state in ctx.quadrants.items() if state.get("completed")]
+        pending = [q for q in ctx.patient_state.get("selected_quadrant_names", []) if q not in completed]
+        ctx.patient_state["completed_quadrants"] = completed
+        ctx.patient_state["assessment_complete"] = not pending
         ctx.audit("QUADRANT_MARKED_COMPLETE_BY_THERAPIST", quadrant=quadrant)
-        return self._next_for(ctx, quadrant)
+        logging.getLogger("anahat.assessment.progress").info(
+            "COMPLETED QUADRANTS: %s | REMAINING QUADRANTS: %s | ASSESSMENT COVERAGE COMPLETE: %s",
+            completed, pending, not pending,
+        )
+        if pending:
+            logging.getLogger("anahat.assessment.progress").info("MOVING TO NEXT QUADRANT: %s", pending[0])
+        selected = ctx.patient_state.get("selected_quadrant_names", [])
+        pending = [q for q in selected if not self._q_state(ctx, q).get("completed")]
+        if not pending:
+            return {"status": "COVERAGE_COMPLETE", "assessment_complete": True,
+                    "completed_quadrants": completed, "message": "Selected quadrant coverage is complete. End the session to evaluate the final chakra result."}
+        return self._next_for(ctx, pending[0], 1)
 
     # ------------------------------------------------------------------ responses
     def process_response(self, sid, text, question_id=None, quadrant=None, *, request_id=None):
         ctx = self._ctx(sid)
+        if ctx.patient_state.get("final_chakra_evaluated"):
+            raise ValueError("The assessment has ended")
         request_id = clean_request_id(request_id)
 
         payload = {"text": text, "question_id": question_id, "quadrant": quadrant}
@@ -486,11 +652,36 @@ class AssessmentService:
                 return guard
             response = ResponseService().create(text=text, question_id=question_id, quadrant=quadrant)
             result = self._analyze(ctx, response, text, session_id=sid, quadrant=quadrant)
+            logging.getLogger("anahat.assessment.progress").info(
+                "ANSWER RECEIVED: %s | EVIDENCE EXTRACTED: %s | UNRESOLVED AREAS: %s",
+                text, result.get("evidence", []), result.get("unverified_concepts", []),
+            )
             if quadrant and quadrant in ctx.quadrants:
                 st = ctx.quadrants[quadrant]
                 st["response_ids"].append(response.response_id)
                 if question_id and question_id not in st["answered_question_ids"]:
                     st["answered_question_ids"].append(question_id)
+                    question_text = ctx.patient_state.get("question_text_by_id", {}).get(question_id)
+                    if question_text:
+                        ctx.patient_state["asked_questions"] = list(dict.fromkeys(
+                            [*ctx.patient_state.get("asked_questions", []), question_text]
+                        ))
+                    mode = ctx.patient_state.get("question_mode_by_id", {}).get(question_id, "normal")
+                    if mode == "deep_dive":
+                        st["deep_dive_question_count"] += 1
+                        logging.getLogger("anahat.assessment.progress").info(
+                            "DEEP DIVE REQUESTED | CURRENT QUADRANT: %s | DEEP DIVE QUESTION COUNT: %s",
+                            quadrant, st["deep_dive_question_count"],
+                        )
+                    else:
+                        st["normal_question_count"] += 1
+                        st["normal_completed"] = st["normal_question_count"] >= NORMAL_QUADRANT_QUESTION_LIMIT
+                        logging.getLogger("anahat.assessment.progress").info(
+                            "CURRENT QUADRANT: %s | QUESTION COUNT: %s/%s | QUESTION: %s | ANSWER RECORDED: %s",
+                            quadrant, st["normal_question_count"], NORMAL_QUADRANT_QUESTION_LIMIT, question_text, text,
+                        )
+                        if st["normal_question_count"] == NORMAL_QUADRANT_QUESTION_LIMIT:
+                            logging.getLogger("anahat.assessment.progress").info("NORMAL QUADRANT LIMIT REACHED: %s", quadrant)
             if request_id is not None:
                 ctx.processed_requests[request_id] = {"payload": payload, "result": result}
             return result
@@ -638,19 +829,42 @@ class AssessmentService:
         return {"status": "OK", "evidence": ev.model_dump()}
 
     # ------------------------------------------------------------------ scoring / decision / result
-    def score(self, sid):
+    def score(self, sid, *, complete_context=None):
         ctx = self._ctx(sid)
+        if (ctx.patient_state.get("selected_quadrant_names")
+                and not ctx.patient_state.get("final_chakra_evaluated")):
+            raise ValueError("Final chakra scoring is available only through End Session")
         contradictions = self.contradictions.find(ctx.evidence, self.indicators)
         ctx.contradictions = contradictions
+        response_records = (complete_context or {}).get("responses") or ctx.responses
+        if complete_context is not None and len((complete_context.get("evidence") or [])) != len(ctx.evidence):
+            raise RuntimeError("Final assessment context does not contain the complete session evidence list")
+        response_map = {
+            (r.get("response_id") if isinstance(r, dict) else r.response_id):
+            (r.get("raw_text", "") if isinstance(r, dict) else r.raw_text)
+            for r in response_records
+        }
         report = self.scoring.score(ctx.evidence, contradictions=contradictions,
                                     assessed_quadrants=self.assessed_quadrants(ctx),
-                                    responses={r.response_id: r.raw_text for r in ctx.responses})
+                                    responses=response_map)
         ctx.stage = AssessmentStage.CHAKRA_SCORING.value
         ctx.audit("CHAKRA_SCORED", supported=report.supported_chakras)
         return report
 
     def decision(self, sid, therapist_stop=False):
         ctx = self._ctx(sid)
+        selected = ctx.patient_state.get("selected_quadrant_names", [])
+        pending = [q for q in selected if not self._q_state(ctx, q).get("completed")]
+        if pending and not therapist_stop:
+            current = ctx.patient_state.get("current_quadrant")
+            quadrant = current if current in pending else pending[0]
+            next_page = self._next_for(ctx, quadrant, 1)
+            logging.getLogger("anahat.assessment.progress").info(
+                "CHAKRA EVIDENCE STATUS: evaluation deferred until selected coverage completes; pending=%s", pending,
+            )
+            return {"action": "CONTINUE_ASSESSMENT", "reason": "Selected quadrants still have assessment coverage to complete.",
+                    "supported_chakras": [], "unresolved_chakras": [], "recommended_quadrants": pending,
+                    "next_question": (next_page.get("questions") or [None])[0], "stage": ctx.stage}
         report = self.score(sid)
         assessed = self.assessed_quadrants(ctx)
         d = self.decisions.decide(report, assessed_quadrants=assessed, therapist_stop=therapist_stop)
@@ -663,10 +877,31 @@ class AssessmentService:
         return {**d.as_dict(), "stage": ctx.stage, "chakra_report": report.model_dump()}
 
     def final_result(self, sid):
+        """Return the stored final evaluation; never trigger one before End Session."""
+        ctx = self._ctx(sid)
+        if (ctx.patient_state.get("selected_quadrant_names")
+                and not ctx.patient_state.get("final_chakra_evaluated")):
+            raise ValueError("Final chakra evaluation is available only after End Session")
+        if not ctx.patient_state.get("selected_quadrant_names"):
+            # Preserve the KB-only scoring helper for legacy sessions that never
+            # entered selected-quadrant assessment flow.
+            ctx.patient_state["final_chakra_evaluated"] = True
+        if ctx.patient_state.get("final_chakra_result"):
+            return copy.deepcopy(ctx.patient_state["final_chakra_result"])
+        return self._build_final_result(sid)
+
+    def _build_final_result(self, sid, report=None):
         """Everything the result window needs. Decision SUPPORT for the therapist, not a diagnosis."""
         ctx = self._ctx(sid)
+        pending_quadrants = [q for q in ctx.patient_state.get("selected_quadrant_names", [])
+                             if not self._q_state(ctx, q).get("completed")]
+        if pending_quadrants:
+            raise ValueError("Final chakra evaluation is available after all selected quadrants are completed")
         stage_before = ctx.stage
-        report = self.score(sid)
+        report = report or self.score(sid)
+        ctx.patient_state["final_chakra_evaluated"] = True
+        ctx.patient_state["assessment_complete"] = True
+        logging.getLogger("anahat.assessment.progress").info("FINAL CHAKRA RESULTS: %s", report.model_dump())
         ctx.stage = stage_before
         cards = []
         for r in report.results:
@@ -692,6 +927,8 @@ class AssessmentService:
             "session_id": sid, "stage": ctx.stage, "is_diagnosis": False, "therapist_approval_required": True,
             "summary": {
                 "imbalanced": [c["chakra"] for c in cards if c["status"].startswith("IMBALANCED")],
+                "display_message": "No chakra imbalance identified from the confirmed evidence."
+                if not any(c["status"].startswith("IMBALANCED") for c in cards) else "Chakra evaluation complete.",
                 "balanced": names("BALANCED"),
                 "unresolved": names("UNRESOLVED"),
                 "needs_therapist_review": [c["chakra"] for c in cards if c["high_priority"] or c["direction_gray_zone"]],
@@ -712,8 +949,87 @@ class AssessmentService:
                           "they are not a diagnosis. A therapist must review and approve.",
         }
 
+    def finalize_session(self, sid):
+        """Evaluate the complete, accumulated session only on explicit End Session."""
+        ctx = self._ctx(sid)
+        logger = logging.getLogger("anahat.assessment.progress")
+        pending = [q for q in ctx.patient_state.get("selected_quadrant_names", [])
+                   if not self._q_state(ctx, q).get("completed")]
+        if pending:
+            raise ValueError("Complete all selected quadrants and requested deep dives before ending the session")
+        if ctx.patient_state.get("final_chakra_result") and ctx.patient_state.get("final_recommendations"):
+            return {"final_result": copy.deepcopy(ctx.patient_state["final_chakra_result"]),
+                    "chakra_report": copy.deepcopy(ctx.patient_state["final_recommendations"]["chakra_report"]),
+                    "raga": copy.deepcopy(ctx.patient_state["final_recommendations"]["raga"]),
+                    "activities": copy.deepcopy(ctx.patient_state["final_recommendations"]["activities"]),
+                    "assessment_context_summary": copy.deepcopy(ctx.patient_state["assessment_context_summary"])}
+
+        deep_ids = {qid for qid, mode in ctx.patient_state.get("question_mode_by_id", {}).items() if mode == "deep_dive"}
+        deep_response_count = sum(
+            1 for response in ctx.responses
+            if response.question_id in deep_ids or str(response.question_id or "").startswith("DD-")
+        )
+        logger.info("END SESSION REQUESTED | SESSION ID: %s", sid)
+        logger.info("TOTAL RESPONSES: %s | TOTAL EVIDENCE ITEMS: %s", len(ctx.responses), len(ctx.evidence))
+        completed = [q for q, state in ctx.quadrants.items() if state.get("completed")]
+        logger.info("COMPLETED QUADRANTS: %s | DEEP DIVE RESPONSES: %s", completed, deep_response_count)
+        logger.info("BUILDING COMPLETE ASSESSMENT CONTEXT")
+        full_context = {
+            "demographics": copy.deepcopy(ctx.demographics), "baseline": copy.deepcopy(ctx.baseline),
+            "demographic_and_therapist_context": copy.deepcopy(ctx.patient_state.get("current_issue", "")),
+            "opening_responses": copy.deepcopy(ctx.patient_state.get("opening_responses", [])),
+            "selected_quadrants": list(ctx.patient_state.get("selected_quadrant_names", [])),
+            "completed_quadrants": list(ctx.patient_state.get("completed_quadrants", [])),
+            "responses": [r.model_dump() if hasattr(r, "model_dump") else copy.deepcopy(r) for r in ctx.responses],
+            "evidence": [e.model_dump() if hasattr(e, "model_dump") else copy.deepcopy(e) for e in ctx.evidence],
+        }
+        # Integrity trace by quadrant makes it visible that the final pass
+        # includes history from every part of the session.
+        response_quadrants = {r.response_id: r.quadrant for r in ctx.responses}
+        evidence_by_quadrant = {}
+        for item in ctx.evidence:
+            rid = getattr(item, "response_id", None) if not isinstance(item, dict) else item.get("response_id")
+            quadrant = response_quadrants.get(rid, "opening_or_unassigned")
+            evidence_by_quadrant[quadrant] = evidence_by_quadrant.get(quadrant, 0) + 1
+        logger.info("FINAL EVIDENCE BY QUADRANT: %s", evidence_by_quadrant)
+        ctx.patient_state["final_assessment_context"] = full_context
+        if (len(full_context["responses"]) != len(ctx.responses)
+                or len(full_context["evidence"]) != len(ctx.evidence)):
+            raise RuntimeError("Final session integrity check failed while aggregating responses and evidence")
+        logger.info("RUNNING FINAL CHAKRA EVALUATION")
+        ctx.patient_state["final_chakra_evaluated"] = True
+        ctx.patient_state["assessment_complete"] = True
+        ctx.patient_state["end_session_requested"] = True
+        report = self.score(sid, complete_context=full_context)
+        result = self._build_final_result(sid, report=report)
+        logger.info("FINAL CHAKRA RESULTS: %s", result["chakras"])
+        logger.info("RUNNING RAAG INFERENCE")
+        recommendations = self.recommendations(sid)
+        ctx.patient_state["final_chakra_result"] = copy.deepcopy(result)
+        ctx.patient_state["final_recommendations"] = copy.deepcopy(recommendations)
+        ctx.patient_state["assessment_context_summary"] = {
+            "total_responses": len(ctx.responses), "total_evidence_items": len(ctx.evidence),
+            "selected_quadrants": full_context["selected_quadrants"],
+            "completed_quadrants": completed, "deep_dive_responses": deep_response_count,
+            "evidence_by_quadrant": evidence_by_quadrant,
+        }
+        logger.info("FINAL ASSESSMENT COMPLETE | responses=%s evidence=%s", len(ctx.responses), len(ctx.evidence))
+        return {"final_result": result, "chakra_report": recommendations["chakra_report"],
+                "raga": recommendations["raga"], "activities": recommendations["activities"],
+                "assessment_context_summary": {"total_responses": len(ctx.responses),
+                    "total_evidence_items": len(ctx.evidence), "selected_quadrants": full_context["selected_quadrants"],
+                    "completed_quadrants": completed, "deep_dive_responses": deep_response_count,
+                    "evidence_by_quadrant": evidence_by_quadrant}}
+
     def recommendations(self, sid, current_time_label=None, preferences=None):
-        ctx = self._ctx(sid); report = self.score(sid)
+        ctx = self._ctx(sid)
+        if (ctx.patient_state.get("selected_quadrant_names")
+                and not ctx.patient_state.get("final_chakra_evaluated")):
+            raise ValueError("Raag inference is available only after final chakra evaluation at End Session")
+        report = self.score(sid)
+        logging.getLogger("anahat.assessment.progress").info(
+            "RAAG INFERENCE: %s", "START" if report.supported_chakras else "SKIPPED (no supported chakra)"
+        )
         activities = self.activities.candidates_for_chakras(report.supported_chakras)
         ragas = self.ragas.candidates(approved_chakras=report.supported_chakras, current_time_label=current_time_label, preferences=preferences)
         logging.getLogger("anahat.scoring").debug(

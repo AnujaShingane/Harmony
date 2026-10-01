@@ -51,6 +51,7 @@ export const result = withDoc((req, _res, doc) => svc.result(req.user, doc));
 export const score = withDoc((req, _res, doc) => svc.score(req.user, doc));
 export const decide = withDoc((req, _res, doc) => svc.decide(req.user, doc, req.body.stop));
 export const recommendations = withDoc((req, _res, doc) => svc.recommendations(req.user, doc));
+export const endSession = withDoc((req, _res, doc) => svc.endSession(req.user, doc));
 export const draftPrescription = withDoc((req, _res, doc) => svc.draftPrescription(req.user, doc));
 export const reviewPrescription = withDoc((req, _res, doc) => svc.reviewPrescription(req.user, doc, req.body));
 export const finalize = withDoc((req, _res, doc) => svc.finalize(req.user, doc));

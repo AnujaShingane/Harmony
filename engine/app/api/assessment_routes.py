@@ -114,6 +114,17 @@ def _runtime_service(*, include_retriever: bool = False):
             if include_retriever and _service.retriever is None:
                 _service.retriever = KnowledgeRetriever()
                 _service.retriever.collection_name = settings.qdrant_indicator_collection
+                # Reuse the same embedding/Qdrant retrieval implementation, but
+                # query the general ANAHAT knowledge collection for question text.
+                _service.question_retriever = (
+                    KnowledgeRetriever(
+                        client=_service.retriever.client,
+                        embedder=_service.retriever.embedder,
+                        collection_name=settings.qdrant_collection,
+                    )
+                    if hasattr(_service.retriever, "client") and hasattr(_service.retriever, "embedder")
+                    else _service.retriever
+                )
                 if getattr(_service, 'questions', None) is not None and _service.questions.embedder is None:
                     _service.questions.embedder = _service.retriever.embedder
     return _service
@@ -136,8 +147,8 @@ def complete_quadrant(session_id: str, request: QuadrantSelection):
     return _call(_service.complete_quadrant, session_id, request.quadrant)
 
 @router.get('/sessions/{session_id}/questions/next')
-def next_questions(session_id: str, quadrant: str | None = None, limit: int = 3):
-    return _call(_service.next_questions, session_id, quadrant, max(1, min(limit, 10)))
+def next_questions(session_id: str, quadrant: str | None = None, limit: int = 3, deep_dive: bool = False):
+    return _call(_service.next_questions, session_id, quadrant, max(1, min(limit, 10)), deep_dive)
 
 @router.post('/sessions/{session_id}/responses')
 def response(session_id: str, request: PatientResponseCreate, req: Request):
@@ -184,6 +195,11 @@ def chakra_report(session_id: str):
 def final_result(session_id: str):
     """Data for the result window: per-chakra status, scores, confidence, coverage, trace, open items."""
     return _call(_service.final_result, session_id)
+
+@router.post('/sessions/{session_id}/end')
+def end_session(session_id: str):
+    """Run the final evaluation and Raag inference against the complete session context."""
+    return _call(_service.finalize_session, session_id)
 
 @router.post('/sessions/{session_id}/decision')
 def therapist_decision(session_id: str, stop: bool = False):

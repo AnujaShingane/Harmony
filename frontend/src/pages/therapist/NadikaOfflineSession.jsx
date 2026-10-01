@@ -318,6 +318,18 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       return;
     }
 
+    if (d.finalChakraResult) {
+      const chakra = d.finalChakraResult.chakras || d.chakraReport?.results || [];
+      const ragas = d.recommendations?.raga?.candidates || [];
+      const activities = d.recommendations?.activities || [];
+      setResults({ chakra, ragas, activities });
+      setPhase('ended');
+      nadika(d.finalChakraResult.summary?.display_message || 'Final chakra evaluation complete.', {
+        type: 'results', chakra, ragas, activities
+      });
+      return;
+    }
+
     if (d.recommendations) {
       setPhase('ended');
       return;
@@ -374,30 +386,10 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       return;
     }
 
-    const asked = new Set(d.askedQuestionIds || []);
+    setQuadrantCursor(0);
+    afterQuadrant(d, d.scope[0]);
+    return;
 
-    for (let i = 0; i < d.scope.length; i += 1) {
-      const q = (d.quadrantQuestions?.[d.scope[i]] || [])
-        .slice(0, 3)
-        .find((x) => !asked.has(x.id));
-
-      if (q) {
-        setQuadrantCursor(i);
-        setCurrent({
-          id: q.id,
-          text: q.question,
-          quadrant: d.scope[i]
-        });
-        setPhase('question');
-        return;
-      }
-    }
-
-    setQuadrantCursor(
-      Math.max(0, d.scope.length - 1)
-    );
-
-    setPhase('decision');
   };
 
   // ---- step handlers ------------------------------------------------------
@@ -480,62 +472,54 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       }));
 
   const askNext = (d, list) => {
-    const asked = new Set(d.askedQuestionIds || []);
+    const quadrant = list?.[0]?.quadrant || current?.quadrant || d.scope?.[quadrantCursor];
+    afterQuadrant(d, quadrant, Boolean(current?.deep));
+  };
 
-    const unaskedList = list.filter(
-      (q) => !asked.has(q.id)
-    );
-
-    if (!unaskedList.length) {
-      if (!d.scope?.length) {
-        suggestQuadrants(d);
-        return;
-      }
-
-      afterQuadrant(d);
-      return;
-    }
-
-    setCurrent(null);
-    setPhase('question');
-
-    nadika(null, {
-      type: 'suggested',
-      items: [unaskedList[0]],
-      quadrant: unaskedList[0].quadrant
+  const promptEndSession = () => {
+    setPhase('decision');
+    nadika('All selected quadrants and requested deep dives are complete. End the session to run the final chakra evaluation using the full session history.', {
+      type: 'decision', noNext: true, allComplete: true
     });
   };
 
-  const afterQuadrant = (d) =>
-    run('Reviewing evidence', async () => {
-      const cur = d.scope[quadrantCursor];
+  const afterQuadrant = (d, requestedQuadrant = null, deepDive = false) =>
+    run(deepDive ? 'Retrieving a deep dive question' : 'Retrieving the next assessment question', async () => {
+      const currentQuadrant = requestedQuadrant || current?.quadrant || d.scope?.[quadrantCursor];
+      const ordered = currentQuadrant
+        ? [currentQuadrant, ...(d.scope || []).filter((q) => q !== currentQuadrant)]
+        : [...(d.scope || [])];
 
-      const text = (d.transcript || [])
-        .slice(-6)
-        .map((t) => t.text)
-        .join(' ')
-        .slice(0, 300);
-
-      const r = await anahat
-        .analyseQuadrants(d.id, text)
-        .catch(() => ({ recommended: [] }));
-
-      const suggestion =
-        (r.recommended || [])
-          .map((x) => x.quadrant)
-          .find((q) => !(d.scope || []).includes(q)) || null;
-
-      setPhase('decision');
-
-      nadika(
-        `That covers ${cur}.${suggestion ? ` From what I heard, ${suggestion} may also be relevant — accept it below if you agree.` : ''}`,
-        {
-          type: 'decision',
-          suggestion
+      for (const quadrant of ordered) {
+        const page = await anahat.nextQuestions(d.id, quadrant, 1, deepDive && quadrant === currentQuadrant);
+        if (page.normal_limit_reached) {
+          setPhase('decision');
+          nadika('The three-question pass for ' + quadrant + ' is complete. Move to the next selected quadrant, or explicitly request a deep dive here.', {
+            type: 'decision',
+            quadrant,
+            normalLimitReached: true
+          });
+          return;
         }
-      );
-    });
+        const hit = page.questions?.[0];
+        if (hit) {
+          setDoc(d);
+          setQuadrantCursor(d.scope.indexOf(quadrant));
+          setCurrent(null);
+          setPhase('question');
+          nadika('RAG selected the next question for ' + quadrant + '.', {
+            type: 'suggested',
+            items: [{ id: hit.id, text: hit.question || hit.text, quadrant, rag: true, deep: deepDive }],
+            quadrant
+          });
+          return;
+        }
+        setQuadrantCursor(d.scope.indexOf(quadrant));
+        await anahat.completeQuadrant(d.id, quadrant);
+      }
 
+      promptEndSession();
+    });
   const [inlineAnswer, setInlineAnswer] = useState('');
 
   const selectSuggested = (q) => {
@@ -952,79 +936,9 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
   // Deep dive.
 
   const deepDiveNext = (d, quadrant) => {
-    const asked = new Set(
-      d.askedQuestionIds || []
-    );
-
-    const said = (d.transcript || [])
-      .map((t) =>
-        String(t.text).toLowerCase()
-      )
-      .join(' ');
-
-    const remaining = quadrantQs(
-      d,
-      quadrant,
-      true
-    )
-      .filter(
-        (q) => !asked.has(q.id)
-      )
-      .map((q) => ({
-        q,
-        score: String(
-          q.hint || q.text
-        )
-          .toLowerCase()
-          .split(/\W+/)
-          .filter(
-            (w) =>
-              w.length > 3 &&
-              said.includes(w)
-          )
-          .length
-      }))
-      .sort(
-        (a, b) =>
-          b.score - a.score
-      );
-
-    if (remaining.length) {
-      const items = remaining
-        .slice(0, 1)
-        .map((r) => ({
-          ...r.q,
-          deep: true
-        }));
-
-      setCurrent(null);
-      setPhase('question');
-
-      nadika(null, {
-        type: 'suggested',
-        items,
-        quadrant,
-        deep: true
-      });
-
-      return;
-    }
-
-    setCurrent({
-      id: null,
-      text: null,
-      quadrant,
-      deep: true
-    });
-
-    setPhase('deep');
-
-    nadika(
-      `No more bank questions for ${quadrant}. Ask a follow-up in your own words (what changed, how often, impact), type the answer — or say "done".`
-    );
+    me('Deep dive in ' + quadrant);
+    afterQuadrant(d, quadrant, true);
   };
-
-  // -------------------------------------------------------------------------
   // Adaptive quadrant recommendation.
   //
   // DO NOT hard-code quadrants here.
@@ -1271,56 +1185,16 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
             'Move to next selected quadrant'
           );
 
-          const nextIdx =
-            d.scope.findIndex(
-              (q, i) =>
-                i > quadrantCursor &&
-                quadrantQs(
-                  d,
-                  q
-                ).some(
-                  (x) =>
-                    !(
-                      d.askedQuestionIds ||
-                      []
-                    ).includes(
-                      x.id
-                    )
-                )
-            );
-
+          const nextIdx = d.scope.findIndex((q, i) => i > quadrantCursor);
+          await anahat.completeQuadrant(d.id, cur);
           if (nextIdx < 0) {
-            nadika(
-              'All selected quadrants are covered. Deep dive, accept a suggested quadrant, or end the assessment.',
-              {
-                type: 'decision',
-                noNext: true,
-                suggestion
-              }
-            );
-
+            promptEndSession();
             return;
           }
-
-          setQuadrantCursor(
-            nextIdx
-          );
-
-          nadika(
-            `${d.scope[nextIdx]} — ${quadrantQs(d, d.scope[nextIdx]).length} focused questions.`
-          );
-
-          askNext(
-            d,
-            quadrantQs(
-              d,
-              d.scope[nextIdx]
-            )
-          );
-
+          setQuadrantCursor(nextIdx);
+          afterQuadrant(d, d.scope[nextIdx]);
           return;
         }
-
         if (
           choice === 'accept' &&
           suggestion
@@ -1381,7 +1255,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
 
         if (choice === 'end') {
           me(
-            'End assessment'
+            'End Session'
           );
 
           await endAssessment();
@@ -1389,83 +1263,17 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
       }
     );
 
-  const endAssessment = async (
-    skipSufficiency = false
-  ) => {
+  const endAssessment = async () => {
     setPhase('ended');
 
     const d = doc;
 
-    if (!(d.evidence || []).length) {
-      nadika(
-        'No relevant canonical session evidence was extracted for chakra scoring. You can still complete the report from your notes.',
-        {
-          type: 'results',
-          chakra: [],
-          ragas: [],
-          activities: [],
-          empty: true
-        }
-      );
-
-      setResults({
-        chakra: [],
-        ragas: [],
-        activities: []
-      });
-
-      return;
-    }
-
     try {
-      await anahat.score(d.id);
-
-      if (!skipSufficiency) {
-        const suff =
-          await anahat.decide(
-            d.id,
-            false
-          );
-
-        if (
-          suff.action &&
-          /deep|insufficient|continue/i.test(
-            suff.action
-          )
-        ) {
-          setPhase(
-            'sufficiency'
-          );
-
-          nadika(
-            `Sufficiency check: ${suff.reason || 'the engine would like more evidence'}${
-              suff.unresolved_chakras?.length
-                ? ` (unresolved: ${suff.unresolved_chakras.join(', ')})`
-                : ''
-            }. Continue the assessment, or stop and score what we have?`,
-            {
-              type: 'sufficiency'
-            }
-          );
-
-          return;
-        }
-      }
-
-      await anahat.decide(
-        d.id,
-        true
-      );
-
-      const rec =
-        await anahat.recommendations(
-          d.id
-        );
+      const rec = await anahat.endSession(d.id);
 
       const chakra =
         (
-          rec.chakra_report
-            ?.results || []
+          rec.final_result?.chakras || rec.chakra_report?.results || []
         ).filter(
           (r) => r.status
         );
@@ -1502,7 +1310,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
                 ? 's'
                 : ''
             } an imbalance. These findings and raag suggestions are for you only.`
-          : 'Assessment complete. No chakra passed the imbalance gate from the confirmed evidence.',
+          : 'No chakra imbalance identified from the confirmed evidence. No chakra-based Raag inference is available.',
         {
           type: 'results',
           chakra,
@@ -1511,6 +1319,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
         }
       );
     } catch (e) {
+      setPhase('decision');
       setError(e.message);
     }
   };
@@ -2212,31 +2021,6 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
                   ? 'AI unavailable'
                   : 'Connecting'}
             </span>
-
-            {![
-              'ended',
-              'prescription',
-              'done',
-              'loading',
-              'error'
-            ].includes(phase) && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'End the assessment now and move to scoring? This closes the question flow.'
-                    )
-                  ) {
-                    endAssessment();
-                  }
-                }}
-                disabled={!!busy}
-                className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-40"
-              >
-                End session
-              </button>
-            )}
 
           </div>
         </header>
@@ -3464,13 +3248,13 @@ function CardView({
           </Opt>
 
           <Opt
-            on={active}
+            on={active && card.noNext}
             primary
             onClick={() =>
               decision('end')
             }
           >
-            End assessment
+            End Session
           </Opt>
 
         </div>

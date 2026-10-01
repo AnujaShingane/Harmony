@@ -31,6 +31,8 @@ const anahatAssessmentSchema = new Schema({
   evidence: { type: [Mixed], default: [] },
   safetyEvents: { type: [Mixed], default: [] },
   chakraReport: { type: Mixed, default: null },
+  finalChakraResult: { type: Mixed, default: null },
+  assessmentContextSummary: { type: Mixed, default: null },
   decisions: { type: [Mixed], default: [] },
   recommendations: { type: Mixed, default: null },
   prescriptionDraft: { type: Mixed, default: null },

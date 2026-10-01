@@ -41,6 +41,7 @@ router.get('/assessments/:id/result', ...therapist, asyncHandler(c.result));
 router.post('/assessments/:id/score', ...therapist, asyncHandler(c.score));
 router.post('/assessments/:id/decision', ...therapist, asyncHandler(c.decide));
 router.post('/assessments/:id/recommendations', ...therapist, asyncHandler(c.recommendations));
+router.post('/assessments/:id/end', ...therapist, asyncHandler(c.endSession));
 router.post('/assessments/:id/prescription/draft', ...therapist, asyncHandler(c.draftPrescription));
 router.post('/assessments/:id/prescription/review', ...therapist, asyncHandler(c.reviewPrescription));
 router.post('/assessments/:id/finalize', ...therapist, asyncHandler(c.finalize));

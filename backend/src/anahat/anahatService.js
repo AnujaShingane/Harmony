@@ -339,9 +339,9 @@ export async function resolveEvidence(user, doc, evidenceId, body) {
 
 // Question paging (engine): next unanswered questions for a quadrant; the engine reports when a quadrant
 // is exhausted and which quadrant to move to (no more "out of questions").
-export async function nextQuestions(user, doc, quadrant, limit) {
+export async function nextQuestions(user, doc, quadrant, limit, deepDive = false) {
   assertTherapistOwner(user, doc); assertOpen(doc);
-  return withEngine(doc, () => engine.nextQuestions(doc.engineSessionId, quadrant, limit));
+  return withEngine(doc, () => engine.nextQuestions(doc.engineSessionId, quadrant, limit, deepDive));
 }
 
 export async function completeQuadrant(user, doc, quadrant) {
@@ -360,7 +360,11 @@ export async function deepDive(user, doc, stop) {
 export async function answerDeepDive(user, doc, body) {
   assertTherapistOwner(user, doc); assertOpen(doc);
   const r = await withEngine(doc, () => engine.deepDiveAnswer(doc.engineSessionId, { evidence_id: body.evidence_id, field: body.field, value: body.value, raw_text: body.raw_text || null }));
-  if (r.evidence) { doc.evidence = doc.evidence.map((e) => (e.evidence_id === body.evidence_id ? { ...e, ...r.evidence } : e)); doc.markModified('evidence'); await doc.save(); }
+  if (body.raw_text?.trim()) {
+    doc.transcript.push({ requestId: null, question: `Deep dive: ${body.field}`, questionId: `DD-${body.field}`, quadrant: body.quadrant || null, text: body.raw_text.trim(), responseId: r.response_id || null, status: r.status || 'OK', at: new Date() });
+  }
+  if (r.evidence) { doc.evidence = doc.evidence.map((e) => (e.evidence_id === body.evidence_id ? { ...e, ...r.evidence } : e)); doc.markModified('evidence'); }
+  if (body.raw_text?.trim() || r.evidence) await doc.save();
   await audit('anahat.deepdive.answered', user.id, { assessmentId: doc._id, evidenceId: body.evidence_id, field: body.field });
   return r;
 }
@@ -404,6 +408,32 @@ export async function recommendations(user, doc) {
   const r = await withEngine(doc, () => engine.recommendations(doc.engineSessionId));
   doc.recommendations = r; doc.stage = 'raga_review'; await doc.save();
   return r;
+}
+
+// Explicit End Session command. The engine owns accumulated response/evidence
+// state; this call asks it to evaluate the whole session once and persists that
+// returned report instead of trusting any earlier cached chakra report.
+export async function endSession(user, doc) {
+  assertTherapistOwner(user, doc); assertOpen(doc);
+  if (doc.finalChakraResult && doc.recommendations) {
+    return { final_result: doc.finalChakraResult, chakra_report: doc.chakraReport,
+      raga: doc.recommendations.raga, activities: doc.recommendations.activities,
+      assessment_context_summary: doc.assessmentContextSummary };
+  }
+  const result = await withEngine(doc, () => engine.endSession(doc.engineSessionId));
+  doc.finalChakraResult = result.final_result;
+  doc.chakraReport = result.chakra_report;
+  doc.recommendations = { raga: result.raga, activities: result.activities };
+  doc.assessmentContextSummary = result.assessment_context_summary;
+  doc.stage = 'raga_review';
+  await doc.save();
+  await audit('anahat.assessment.ended', user.id, {
+    assessmentId: doc._id,
+    responses: result.assessment_context_summary?.total_responses,
+    evidence: result.assessment_context_summary?.total_evidence_items,
+    quadrants: result.assessment_context_summary?.completed_quadrants,
+  });
+  return result;
 }
 
 // Step 33 — prescription draft (engine).
