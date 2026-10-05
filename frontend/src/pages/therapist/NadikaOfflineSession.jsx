@@ -889,10 +889,38 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
         }
       }
 
-      continueAfter(d);
+      continueAfter(d, r);
     });
 
-  const continueAfter = (d) => {
+  const continueAfter = (d, response = null) => {
+    const transition = response?.quadrant_transition;
+    if (transition) {
+      const hit = transition.questions?.[0];
+      if (hit) {
+        const nextQuadrant = transition.quadrant || hit.quadrant;
+        setDoc(d);
+        setQuadrantCursor(d.scope.indexOf(nextQuadrant));
+        setCurrent(null);
+        setPhase('question');
+        nadika('Completed ' + transition.completed_quadrant + ' after three normal questions. Automatically moved to ' + nextQuadrant + '.', {
+          type: 'suggested', quadrant: nextQuadrant, autoMovedFrom: transition.completed_quadrant,
+          items: [{ id: hit.id, text: hit.question || hit.text, quadrant: nextQuadrant, rag: true, deep: false }]
+        });
+      } else {
+        setDoc(d);
+        if (transition.status === 'COVERAGE_COMPLETE' || transition.assessment_complete) {
+          promptEndSession(transition.completed_quadrant);
+        } else {
+          setPhase('retrieval_failure');
+          nadika('The prior quadrant is complete, but no eligible question was retrieved for ' + transition.quadrant + '. Choose a recovery action.', {
+            type: 'retrieval_failure', quadrant: transition.quadrant,
+            completedQuadrant: transition.completed_quadrant,
+            status: transition.retrieval_status || transition.quadrant_status || 'RETRIEVAL_FAILED'
+          });
+        }
+      }
+      return;
+    }
     if (
       phase === 'deep' ||
       (current?.quadrant && current?.deep)
@@ -1046,21 +1074,6 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
               ]
             : [];
 
-        const conversationSignals =
-          (d?.transcript || [])
-            .filter(
-              (t) => t?.text
-            )
-            .slice(-16)
-            .map(
-              (t) =>
-                `PATIENT RESPONSE${
-                  t.question
-                    ? ` to ${t.question}`
-                    : ''
-                }: ${t.text}`
-            );
-
         const summary = [
           'PATIENT ASSESSMENT INFORMATION',
           '',
@@ -1068,10 +1081,7 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
           '',
           ...baselineSignals,
           '',
-          ...therapistContext,
-          '',
-          'RECENT ASSESSMENT CONVERSATION:',
-          ...conversationSignals
+          ...therapistContext
         ]
           .filter(Boolean)
           .join('\n')
@@ -1177,14 +1187,16 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
 
   const decision = (
     choice,
-    suggestion
+    suggestion,
+    requestedQuadrant,
+    addNewQuadrant = false
   ) =>
     run(
       'One moment',
       async () => {
         const d = doc;
         const cur =
-          d.scope[quadrantCursor];
+          requestedQuadrant || d.scope[quadrantCursor];
 
         if (choice === 'retry') {
           afterQuadrant(d, cur);
@@ -1206,6 +1218,10 @@ export default function NadikaOfflineSession({ patientId, patientName, appointme
         }
 
         if (choice === 'next') {
+          if (addNewQuadrant) {
+            await suggestQuadrants(d);
+            return;
+          }
           me(
             'Move to next selected quadrant'
           );
@@ -2392,12 +2408,23 @@ function CardView({
         <p className="text-sm font-semibold text-amber-800">
           {card.quadrant} remains incomplete ({card.status}). No question was available to ask.
         </p>
-        <Opt on={phase === 'retrieval_failure'} onClick={() => decision('retry')}>
-          Retry question retrieval
-        </Opt>
-        <Opt on={phase === 'retrieval_failure'} onClick={suggestQuadrants}>
-          Review assessment areas
-        </Opt>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Opt on={phase === 'retrieval_failure'} onClick={() => decision('retry')}>
+            Retry question retrieval
+          </Opt>
+          <Opt on={phase === 'retrieval_failure'} onClick={() => decision('next', null, card.completedQuadrant || card.quadrant, true)}>
+            Move to / add a new quadrant
+          </Opt>
+          <Opt on={phase === 'retrieval_failure'} primary onClick={() => decision('end')}>
+            End Session
+          </Opt>
+          {card.completedQuadrant && <Opt on={phase === 'retrieval_failure'} onClick={() => decision('deep', null, card.completedQuadrant)}>
+            Deep dive into {card.completedQuadrant}
+          </Opt>}
+          {!card.completedQuadrant && <Opt on={phase === 'retrieval_failure'} onClick={suggestQuadrants}>
+            Review assessment areas
+          </Opt>}
+        </div>
       </div>
     );
   }
@@ -2527,14 +2554,14 @@ function CardView({
           </div>
         )}
 
-        {current?.deep && <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap gap-2">
+        {(current?.deep || card.autoMovedFrom) && <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap gap-2">
 
           <Opt
             on={
               phase ===
               'question'
             }
-            onClick={() => decision('next')}
+            onClick={() => decision('next', null, card.autoMovedFrom || card.quadrant, Boolean(card.autoMovedFrom))}
           >
             Move to / add a new quadrant
           </Opt>
@@ -2545,12 +2572,17 @@ function CardView({
               'question'
             }
             primary
-            onClick={() =>
-              decision('end')
-            }
+            onClick={() => decision('end')}
           >
             End session
           </Opt>
+
+          {card.autoMovedFrom && <Opt
+            on={phase === 'question'}
+            onClick={() => decision('deep', null, card.autoMovedFrom)}
+          >
+            Deep dive into {card.autoMovedFrom}
+          </Opt>}
 
         </div>}
       </div>

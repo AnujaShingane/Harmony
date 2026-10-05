@@ -45,10 +45,13 @@
     "correction": "If there is no relevant evidence, confidence must be Low / Not assessed. Do not award full completeness merely because nothing was identified."
   },
   "imbalance_gate": {
-    "confirmed": "winning directional score >= 0.45 AND confidence >= 60% AND at least 2 independent supporting evidence units",
-    "high_priority_single": "A Strong + Severe + Confirmed unit with score >= 0.70 may be shown as a high-priority candidate, but seek corroboration before final top-two confirmation.",
-    "conflicted": "If both directions are meaningful and within the conflict margin, do not call the chakra imbalanced; ask clarification.",
-    "top_two": "Select at most two chakras that pass the gate. If fewer than two pass, continue assessment or report that two supported findings were not established.",
+    "meaningful_directional_threshold": 0.2,
+    "single_direction": "If exactly one of Deficient or Excess reaches the meaningful directional threshold, select that direction and mark IMBALANCED.",
+    "both_directions": "If both directions reach the meaningful directional threshold, select the stronger direction only when stronger / weaker >= 1.20; otherwise mark CONFLICTED without selecting a direction.",
+    "confidence_and_coverage": "Confidence is calculated after status and coverage contributes only to confidence; neither blocks an otherwise meaningful imbalance.",
+    "eligibility": "Only current confirmed or successfully clarified evidence with a valid KB indicator and chakra-direction mapping contributes to directional scores.",
+    "high_priority_single": "A Strong + Severe + Confirmed unit with score >= 0.70 may be shown as a high-priority candidate, but this does not add an imbalance gate condition.",
+    "multiple_chakras": "Evaluate each chakra independently; every chakra passing its directional gate may be reported.",
     "therapist_stop": "The therapist may stop at any time; stopping does not make an unsupported chakra an imbalance."
   }
 }

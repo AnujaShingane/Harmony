@@ -40,6 +40,7 @@ STATUS_LABELS = {
     "IMBALANCED_DEFICIENT": "Imbalanced — Deficient",
     "IMBALANCED_EXCESS": "Imbalanced — Excess",
     "IMBALANCED_DIRECTION_UNRESOLVED": "Imbalanced — Direction unresolved",
+    "CONFLICTED": "Conflicted — Deficient and Excess",
     "UNRESOLVED": "Unresolved",
 }
 
@@ -63,13 +64,10 @@ class ScoringEngine:
         self.conf_weights = (cfg.get("confidence") or {}).get("weights") or DEFAULT_CONFIDENCE_WEIGHTS
         direction = cfg.get("direction", {})
         self.meaningful_threshold = float(direction.get("meaningful_threshold", 0.2))
-        # Engineering gates live in settings (env-configurable), not in code.
-        self.imbalance_threshold = float(settings.imbalance_score_threshold)
-        self.direction_threshold = float(settings.direction_threshold)
-        self.min_confidence = float(settings.minimum_confidence_pct)
-        self.min_units = int(settings.minimum_independent_evidence_units)
-        self.ambiguity_margin = float(settings.ambiguity_margin)
-        self.gray_zone_margin = float(settings.direction_gray_zone_margin)
+        # Meaningful directional evidence is the only numeric imbalance gate.
+        # Confidence and coverage describe support, but cannot block a result.
+        self.imbalance_threshold = self.meaningful_threshold
+        self.dominance_ratio = 1.20
         self.insufficient_score_threshold = float(settings.insufficient_score_threshold)
         self.high_priority_single = float(settings.high_priority_single_score)
         self.balanced_min_quadrants = int(settings.balanced_min_assessed_quadrants)
@@ -141,13 +139,54 @@ class ScoringEngine:
         return round(pct, 2), coverage
 
     # --------------------------------------------------------------------- score
-    def score(self, evidence, *, contradictions=None, assessed_quadrants=None, responses=None):
+    def score(self, evidence, *, contradictions=None, assessed_quadrants=None, responses=None,
+              assessment_context=None):
         contradictions = contradictions or []
         assessed = set(assessed_quadrants or [])
         n_assessed = len(assessed)
         adequately_assessed = n_assessed >= self.balanced_min_quadrants
         evidence = list(evidence or [])
         results = []
+        if assessment_context is not None:
+            logging.getLogger("anahat.scoring").info(
+                "FINAL SCORER RECEIVED COMPLETE CONTEXT: demographics=%s baseline=%s opening_responses=%s "
+                "selected_quadrants=%s completed_quadrants=%s responses=%s evidence=%s",
+                assessment_context.get("demographics"), assessment_context.get("baseline"),
+                len(assessment_context.get("opening_responses") or []),
+                assessment_context.get("selected_quadrants"), assessment_context.get("completed_quadrants"),
+                len(assessment_context.get("responses") or []), len(assessment_context.get("evidence") or []),
+            )
+
+        mapping_diagnostics = []
+        for ev in evidence:
+            canonical_id = ev.canonical_indicator_id
+            mapped = [chakra for chakra in self.chakras
+                      if any(item.chakra == chakra for item in self.repo.get_by_id(canonical_id))]
+            if mapped:
+                mapping_reason = "canonical indicator has chakra associations"
+            elif not canonical_id:
+                mapping_reason = "no canonical indicator ID was attached to this evidence"
+            elif not self.repo.get_by_id(canonical_id):
+                mapping_reason = "canonical indicator ID is absent from the loaded indicator knowledge base"
+            else:
+                mapping_reason = "canonical indicator has no association to a configured chakra"
+            mapping_diagnostics.append({
+                "evidence_id": ev.evidence_id, "label": ev.indicator_term,
+                "canonical_indicator_id": canonical_id, "mapped_chakras": mapped,
+                "mapping_reason": mapping_reason, "status": ev.status.value,
+                "polarity": ev.polarity, "currentness": ev.currentness,
+                "intensity": ev.intensity, "superseded": ev.superseded,
+            })
+        logging.getLogger("anahat.scoring").info(
+            "FINAL EVIDENCE -> CHAKRA MAPPING: %s", mapping_diagnostics
+        )
+        logging.getLogger("anahat.scoring").info(
+            "IMBALANCE GATE CONFIG: directional_threshold=%s dominance_ratio=%s "
+            "additional_blocking_conditions=%s confidence_role=%s coverage_role=%s",
+            self.meaningful_threshold, self.dominance_ratio,
+            "none beyond eligible current confirmed/resolved evidence and chakra/direction mapping",
+            "reported after status; not a gate", "confidence component only; not a gate",
+        )
 
         for chakra in self.chakras:
             trace: list[TraceItem] = []
@@ -170,19 +209,23 @@ class ScoringEngine:
                 if kind == "unscored":
                     unresolved.append(ev.evidence_id); continue
 
-                ind = assoc[0]
+                ind = next((item for item in assoc if item.state_raw in DIRECTIONS), None)
+                if ind is None or ev.status not in (EvidenceStatus.CONFIRMED,
+                                                     EvidenceStatus.RESOLVED_AFTER_CLARIFICATION):
+                    continue
+                if not ev.intensity:
+                    pending.append({"evidence_id": ev.evidence_id, "indicator": ev.indicator_term,
+                                    "missing": ["intensity"]})
+                    unresolved.append(ev.evidence_id)
+                    continue
                 relevant.append(ev)
                 sw = float(self.strength.get(ind.association_rating, 0.0))
-                iw_raw = self.intensity.get(ev.intensity) if ev.intensity else None
+                iw_raw = self.intensity.get(ev.intensity)
                 rw = self._reliability_weight(ev.status.value)
                 note = None
                 if rw == 0.0:
                     unresolved.append(ev.evidence_id); note = "unresolved: contributes 0 until clarified"
-                if iw_raw is None:
-                    pending.append({"evidence_id": ev.evidence_id, "indicator": ev.indicator_term,
-                                    "missing": ["intensity"]})
-                    note = (note + "; " if note else "") + "intensity not stated: contributes 0 until asked"
-                iw = float(iw_raw) if iw_raw is not None else 0.0
+                iw = float(iw_raw)
                 contribution = round(sw * iw * rw, 6)
                 directional = ind.state_raw in DIRECTIONS
                 if not directional:
@@ -232,45 +275,49 @@ class ScoringEngine:
             direction, high_priority, gray = None, False, False
             has_open_items = bool(unresolved or pending)
 
-            gate = (presence >= self.imbalance_threshold and units >= self.min_units
-                    and confidence >= self.min_confidence and not polarity_conflict)
+            deficient_meaningful = deficient >= self.meaningful_threshold
+            excess_meaningful = excess >= self.meaningful_threshold
+            gate = deficient_meaningful or excess_meaningful
+            mapped_count = sum(1 for ev in evidence if self._associations(ev, chakra))
+            gate_failures = []
+            if mapped_count == 0:
+                gate_failures.append("no evidence has a canonical association with this chakra")
+            if not gate:
+                gate_failures.append(f"Deficient {deficient:.2f} and Excess {excess:.2f} are both below "
+                                     f"the meaningful directional threshold {self.meaningful_threshold:.2f}")
+            gate_reason = (
+                "At least one eligible directional score reached the meaningful threshold."
+                if gate else "; ".join(gate_failures)
+            )
 
             if gate:
-                top, gap = max(deficient, excess), abs(deficient - excess)
-                winner = "Deficient" if deficient > excess else "Excess"
-                if top < self.direction_threshold:
-                    status, code = "IMBALANCED_DIRECTION_UNRESOLVED", "DIRECTION_BELOW_THRESHOLD"
-                    reasons.append(f"Presence is supported ({presence:.2f}) but directional evidence "
-                                   f"({top:.2f}) is below the direction threshold {self.direction_threshold:.2f}.")
-                elif gap < self.ambiguity_margin:
-                    status, code = "IMBALANCED_DIRECTION_UNRESOLVED", "DIRECTION_AMBIGUOUS"
-                    reasons.append(f"Deficient ({deficient:.2f}) and Excess ({excess:.2f}) are within "
-                                   f"{self.ambiguity_margin:.2f} of each other: direction is ambiguous.")
-                elif gap < self.gray_zone_margin:
-                    status, code, gray = "IMBALANCED_DIRECTION_UNRESOLVED", "DIRECTION_GRAY_ZONE", True
-                    reasons.append(f"Deficient/Excess gap {gap:.2f} is in the {self.ambiguity_margin:.2f}-"
-                                   f"{self.gray_zone_margin:.2f} gray zone: inspect the evidence.")
+                if deficient_meaningful and excess_meaningful:
+                    stronger, weaker = max(deficient, excess), min(deficient, excess)
+                    ratio = stronger / weaker
+                    if ratio < self.dominance_ratio:
+                        status, code = "CONFLICTED", "DIRECTION_CONFLICTED"
+                        reasons.append(f"Both directions are meaningful, but dominance ratio {ratio:.3f} "
+                                       f"is below {self.dominance_ratio:.2f}; no direction selected.")
+                    else:
+                        direction = "Deficient" if deficient > excess else "Excess"
+                        status, code = f"IMBALANCED_{direction.upper()}", f"DIRECTION_{direction.upper()}"
+                        reasons.append(f"{direction} is dominant by ratio {ratio:.3f} (required "
+                                       f"{self.dominance_ratio:.2f}).")
+                elif deficient_meaningful:
+                    direction, status, code = "Deficient", "IMBALANCED_DEFICIENT", "DIRECTION_DEFICIENT"
                 else:
-                    direction = winner
-                    status, code = f"IMBALANCED_{winner.upper()}", f"DIRECTION_{winner.upper()}"
-                    reasons.append(f"{winner} evidence {max(deficient, excess):.2f} leads by {gap:.2f}.")
-                    if min(deficient, excess) >= self.meaningful_threshold:
-                        reasons.append("Opposite-direction evidence is also present: therapist should inspect it.")
-                if nondirectional:
-                    reasons.append("Some contributing indicators have no fixed direction in the KB "
-                                   "(Either/Varies/Conflicted/...); they support presence only.")
+                    direction, status, code = "Excess", "IMBALANCED_EXCESS", "DIRECTION_EXCESS"
+                if direction:
+                    reasons.append(f"{direction} directional score passed the {self.meaningful_threshold:.2f} threshold.")
             elif polarity_conflict and (presence > 0 or relevant):
                 status, code = "UNRESOLVED", "CONFLICTING_EVIDENCE"
                 reasons.append("Confirmed and denied statements about the same indicator conflict: "
                                "clarification required before this chakra can be called.")
-            elif presence >= self.insufficient_score_threshold or has_open_items:
+            elif presence >= self.insufficient_score_threshold or has_open_items or mapped_count:
                 status, code = "UNRESOLVED", "INSUFFICIENT_EVIDENCE"
                 if presence < self.imbalance_threshold:
                     reasons.append(f"Presence {presence:.2f} is below the imbalance gate {self.imbalance_threshold:.2f}.")
-                if units < self.min_units:
-                    reasons.append(f"{units} independent evidence unit(s); {self.min_units} required.")
-                if confidence < self.min_confidence:
-                    reasons.append(f"Confidence {confidence:.0f}% is below {self.min_confidence:.0f}%.")
+                reasons.append(f"Neither direction reached {self.meaningful_threshold:.2f}.")
                 if pending:
                     code = "MISSING_DETAILS"
                     reasons.append("Severity not yet stated for some evidence: ask before scoring.")
@@ -285,8 +332,8 @@ class ScoringEngine:
             else:
                 if adequately_assessed:
                     status, code = "BALANCED", "ADEQUATELY_ASSESSED_NO_EVIDENCE"
-                    reasons.append(f"{n_assessed}/{self.n_quadrants} quadrants assessed and no meaningful "
-                                   "validated imbalance evidence was found.")
+                    reasons.append(f"Therapist assessed {n_assessed} relevant quadrant(s); no meaningful "
+                                   "validated imbalance evidence was found. Assessing all quadrants is not required.")
                     if negative:
                         reasons.append(f"{len(negative)} explicit denial(s) recorded.")
                     if presence > 0:
@@ -294,14 +341,22 @@ class ScoringEngine:
                                        f"threshold {self.insufficient_score_threshold:.2f}.")
                 else:
                     status, code = "UNRESOLVED", "NOT_ASSESSED"
-                    reasons.append(f"Not adequately assessed ({n_assessed}/{self.balanced_min_quadrants} "
-                                   "quadrants with patient responses). Absence of evidence is NOT balance.")
+                    reasons.append("No quadrant has been assessed. Absence of evidence is NOT balance; "
+                                   "the therapist chooses which quadrants are relevant to assess.")
 
             score = max(presence, deficient, excess)
+            if mapped_count == 0:
+                evidence_state = "NO_MAPPED_EVIDENCE"
+            elif not gate:
+                evidence_state = "MAPPED_EVIDENCE_DID_NOT_PASS_GATE"
+            else:
+                evidence_state = "MAPPED_EVIDENCE_PASSED_PRESENCE_GATE"
             results.append(ChakraResult(
-                chakra=chakra, presence_score=round(presence, 4), deficient_score=round(deficient, 4),
+                chakra=chakra, score=round(score, 4), presence_score=round(presence, 4), deficient_score=round(deficient, 4),
                 excess_score=round(excess, 4), direction=direction, status=status,
                 severity=band(score), confidence_pct=confidence, independent_evidence_units=units,
+                gate_passed=gate, gate_threshold=self.imbalance_threshold, gate_reason=gate_reason,
+                mapped_evidence_count=mapped_count, scored_evidence_count=len(relevant),
                 reasons=reasons, evidence_ids=sorted({t.evidence_id for t in trace}),
                 status_label=STATUS_LABELS[status], status_code=code, confidence_label=confidence_label(confidence),
                 coverage_pct=round(100 * coverage, 1), high_priority=high_priority, direction_gray_zone=gray,
@@ -309,13 +364,29 @@ class ScoringEngine:
                 unresolved_evidence_ids=sorted(set(unresolved)), nondirectional_evidence_ids=sorted(set(nondirectional)),
                 pending_details=pending, trace=trace))
 
+            gate_logger = logging.getLogger("anahat.scoring")
+            gate_logger.info(
+                "FINAL CHAKRA GATE | %s | evidence_state=%s | mapped_evidence_count=%s "
+                "scorable_evidence_count=%s | deficient=%s excess=%s threshold=%s "
+                "| dominance_ratio_required=%s confidence_pct=%s | passed_gate=%s | final_status=%s "
+                "| reason=%s | evidence=%s",
+                chakra, evidence_state, mapped_count, len(relevant), round(deficient, 4), round(excess, 4),
+                self.meaningful_threshold, self.dominance_ratio, confidence,
+                status.startswith("IMBALANCED"), status, reasons,
+                [{"evidence_id": item.evidence_id, "term": item.term, "status": item.evidence_status,
+                  "intensity": item.intensity, "state": item.kb_state,
+                  "contribution": item.contribution, "counted": item.counted, "note": item.note}
+                 for item in trace],
+            )
+
         supported = [r.chakra for r in results if r.status.startswith("IMBALANCED")]
         directional = [r.chakra for r in results if r.status in ("IMBALANCED_DEFICIENT", "IMBALANCED_EXCESS")]
         ranking = [r.chakra for r in sorted(results, key=lambda r: (-r.presence_score, r.chakra))]
         logging.getLogger("anahat.scoring").debug(
             "chakra_score_diagnostics thresholds=%s chakras=%s supported_chakras=%s",
-            {"imbalance_score": self.imbalance_threshold, "direction": self.direction_threshold,
-             "min_confidence_pct": self.min_confidence, "min_independent_units": self.min_units},
+            {"meaningful_directional_score": self.meaningful_threshold,
+             "dominance_ratio": self.dominance_ratio, "confidence_is_gate": False,
+             "coverage_is_gate": False},
             [{"chakra": r.chakra, "presence": r.presence_score,
               "deficient": r.deficient_score, "excess": r.excess_score,
               "confidence_pct": r.confidence_pct, "independent_units": r.independent_evidence_units,
@@ -329,11 +400,11 @@ class ScoringEngine:
             assessed_quadrants=sorted(assessed),
             coverage={"assessed_quadrants": n_assessed, "reference_quadrants": self.n_quadrants,
                       "balanced_requires": self.balanced_min_quadrants, "adequately_assessed": adequately_assessed},
-            audit={"thresholds": {"imbalance_score": self.imbalance_threshold, "direction": self.direction_threshold,
-                                  "ambiguity_margin": self.ambiguity_margin, "gray_zone_margin": self.gray_zone_margin,
+            audit={"thresholds": {"meaningful_directional_score": self.meaningful_threshold,
                                   "insufficient_score": self.insufficient_score_threshold,
-                                  "min_confidence_pct": self.min_confidence, "min_independent_units": self.min_units,
-                                  "balanced_min_assessed_quadrants": self.balanced_min_quadrants},
+                                  "balanced_min_assessed_quadrants": self.balanced_min_quadrants,
+                                  "dominance_ratio": self.dominance_ratio,
+                                  "confidence_is_gate": False, "coverage_is_gate": False},
                    "weights": {"strength": self.strength, "intensity": self.intensity, "reliability": self.reliability,
                                "confidence": self.conf_weights},
                    "clinically_validated": False,

@@ -122,6 +122,17 @@ def test_opening_response_route_completes_assessment_to_final_result(monkeypatch
     assert completed.status_code == 200
     final = client.post(f'/assessment/sessions/{session_id}/end')
     assert final.status_code == 200
+    assert final.json()['status'] == 'CLARIFICATION_REQUIRED'
+    for item in final.json()['deep_dive']['items']:
+        answer = client.post(f'/assessment/sessions/{session_id}/deep-dive/answer', json={
+            'evidence_id': item['evidence_id'],
+            'field': item['field'],
+            'value': 'Root Chakra' if item['field'] == 'disambiguation' else 'Severe',
+            'raw_text': 'I feel unsafe and worried about basic needs.' if item['field'] == 'disambiguation' else 'It is severe.',
+        })
+        assert answer.status_code == 200
+    final = client.post(f'/assessment/sessions/{session_id}/end')
+    assert final.status_code == 200
     assert final.json()['assessment_context_summary']['total_responses'] >= 4
     assert 'final_result' in final.json() and 'chakra_report' in final.json() and 'raga' in final.json()
 
@@ -140,26 +151,48 @@ def test_selected_quadrant_uses_rag_until_coverage_then_displays_final_result():
         page = svc.next_questions(sid, quadrant, 1)
         for number in range(3):
             question = page['questions'][0]
-            svc.process_response(sid, f'I experience abdominal cramps in this {quadrant} area, detail {number}.', question['id'], quadrant)
+            response = svc.process_response(
+                sid, f'I experience abdominal cramps in this {quadrant} area, detail {number}.', question['id'], quadrant
+            )
             session_responses += 1
-            page = svc.next_questions(sid, quadrant, 1)
-        assert page['normal_limit_reached'] is True
-        moved = svc.complete_quadrant(sid, quadrant)
+            page = response.get('quadrant_transition') or svc.next_questions(sid, quadrant, 1)
+        assert response['quadrant_progress']['normal_question_count'] == 3
+        assert response['quadrant_progress']['completed'] is True
         if quadrant == selected[0]:
-            assert moved['quadrant'] == selected[1]
-            assert moved['question_count'] == 0
-            assert moved['questions'][0]['quadrant'] == selected[1]
+            assert page['quadrant'] == selected[1]
+            assert page['question_count'] == 0
+            assert page['questions'][0]['quadrant'] == selected[1]
 
+    score_calls = []
+    original_score = svc.scoring.score
+    def count_final_score(*args, **kwargs):
+        score_calls.append(1)
+        return original_score(*args, **kwargs)
+    svc.scoring.score = count_final_score
     final = svc.finalize_session(sid)
-    assert final['final_result']['summary']['display_message'] == 'No chakra imbalance identified from the confirmed evidence.'
-    assert final['assessment_context_summary']['total_responses'] == session_responses
+    assert final['status'] == 'CLARIFICATION_REQUIRED'
+    while final.get('status') == 'CLARIFICATION_REQUIRED' and final.get('deep_dive', {}).get('items'):
+        for item in final['deep_dive']['items']:
+            svc.answer_deep_dive(
+                sid, item['evidence_id'], item['field'],
+                'Root Chakra' if item['field'] == 'disambiguation' else 'Severe',
+                raw_text='I feel unsafe and worried about basic needs.'
+                if item['field'] == 'disambiguation' else 'It is severe.',
+            )
+        final = svc.finalize_session(sid)
+    assert len(score_calls) == 1
+    assert final['final_result']['summary']['display_message'] == 'Chakra evaluation complete.'
+    assert len(final['final_result']['chakras']) == 7
+    assert all({'score', 'evidence_count', 'gate_passed', 'gate_threshold', 'status', 'reason'} <= set(item)
+               for item in final['final_result']['chakras'])
+    assert final['assessment_context_summary']['total_responses'] > session_responses
     assert set(final['assessment_context_summary']['completed_quadrants']) == set(selected)
     assert set(final['assessment_context_summary']['evidence_by_quadrant']) == set(selected)
     assert svc.get(sid).patient_state['assessment_complete'] is True
     assert svc.get(sid).patient_state['final_chakra_evaluated'] is True
 
 
-def test_q3_waits_for_therapist_and_explicit_end_scores_full_session_without_forcing_other_quadrants():
+def test_q3_completes_current_quadrant_but_waits_for_explicit_end_to_score():
     class EmptyLLM:
         def extract_semantics(self, text, context=None):
             return SemanticExtraction(concepts=[])
@@ -191,7 +224,7 @@ def test_q3_waits_for_therapist_and_explicit_end_scores_full_session_without_for
     assert page['normal_limit_reached'] is True
     assert page['assessment_status'] == 'awaiting_therapist_decision'
     assert ctx.patient_state['assessment_status'] == 'awaiting_therapist_decision'
-    assert ctx.quadrants['Nature']['completed'] is False
+    assert ctx.quadrants['Nature']['completed'] is True
     assert ctx.patient_state['selected_quadrant_names'] == ['Nature']
     assert len(ctx.responses) == 4  # opening plus three normal quadrant answers
 

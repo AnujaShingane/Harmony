@@ -11,3 +11,7 @@ dist/
 engine/.venv/
 **/__pycache__/
 **/.pytest_cache/
+
+backend.zip
+engine.zip
+frontend.zip

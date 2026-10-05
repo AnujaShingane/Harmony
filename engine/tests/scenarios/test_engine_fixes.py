@@ -20,11 +20,21 @@ def test_nothing_assessed_is_not_assessed_never_balanced():
     assert res["summary"]["balanced"] == []
 
 
-def test_balanced_only_after_enough_quadrants_and_shows_low_confidence():
+def test_balanced_after_therapist_assesses_all_relevant_quadrants_and_shows_low_confidence():
     svc, sid = make_session({}, {})
     cover_all_quadrants(svc, sid)
     res = svc.final_result(sid)
     assert all(c["status"] == "BALANCED" and c["confidence_label"] == "Low" for c in res["chakras"])
+
+
+def test_balance_does_not_require_all_ten_quadrants():
+    svc, sid = make_session({}, {})
+    # Therapist decides Nature is the relevant area and marks its normal pass complete.
+    svc._q_state(svc._ctx(sid), "Nature")["normal_question_count"] = 3
+    svc.complete_quadrant(sid, "Nature")
+    res = svc.final_result(sid)
+    assert all(c["status"] == "BALANCED" for c in res["chakras"])
+    assert res["coverage"]["assessed_quadrants"] == ["Nature"]
 
 
 def test_selecting_a_quadrant_alone_does_not_count_as_assessed():
@@ -88,6 +98,8 @@ def test_question_bank_rag_alignment_must_match_the_requested_quadrant():
     page = svc.select_quadrant(sid, "Nature")
     assert page["questions"][0]["quadrant"] == "Nature"
     assert page["retrieval_status"] == "FALLBACK_RETRIEVED"
+    assert page["retrieval_failure_reason"].startswith("all_retrieved_chunks_rejected:")
+    assert "wrong_quadrant=1" in page["retrieval_failure_reason"]
     assert "family" not in page["questions"][0]["question"].lower()
 
 
@@ -122,6 +134,31 @@ def test_quadrant_recommendation_waits_for_and_receives_all_session_context():
         captured["current_issue"], captured["opening_answers"], captured["baseline"], captured["demographics"], [])
     assert any(item["label"] == "opening response" and answer in item["text"] for item in evidence)
     assert any(item["label"] == "demographic context age" for item in evidence)
+    assert all(not item["vote"] for item in evidence if item["label"].startswith("demographic context"))
+
+
+def test_demographics_are_available_as_context_but_do_not_recommend_a_quadrant_alone():
+    qs = QuestionService(kb())
+    evidence = qs._recommendation_evidence(
+        "Occupation: Engineer\nAge: 34", None, None, {"occupation": "Engineer", "age": 34}, []
+    )
+    assert evidence
+    assert all(item["vote"] is False for item in evidence)
+    assert qs.recommend_quadrants(
+        current_issue="Occupation: Engineer\nAge: 34", demographics={"occupation": "Engineer", "age": 34}
+    ) == []
+
+
+def test_fallback_question_ranking_uses_session_relevance_within_requested_quadrant():
+    qs = QuestionService(kb())
+    eligible = qs.attribute_queue("Lifestyle")
+    ranked, method = qs.rank_fallback_questions(
+        "Patient reports irregular sleep patterns and daytime sleepiness", eligible
+    )
+    assert method == "keyword_overlap"
+    assert ranked[0][0]["quadrant"] == "Lifestyle"
+    assert ranked[0][0]["attribute"] == "Sleep Patterns"
+    assert ranked[0][1] > ranked[-1][1]
 
 
 def test_normal_passes_wait_for_therapist_even_when_all_quadrants_are_covered():
@@ -183,6 +220,7 @@ PATIENT RESPONSE to opening: It makes it difficult for me to stay focused and pr
     for signal in ("Anxiety", "Sleep Issues", "Addiction Recovery", "sleepy", "low energetic",
                    "stress: 6", "focused and productive", "daily routine", "Fatigue"):
         assert signal.lower() in input_text.lower()
+    svc._ctx(sid).demographics["communication_preferences"] = {"occupation": "Software Engineer"}
     svc._ctx(sid).responses.append(SimpleNamespace(
         response_id="quadrant-regression-response",
         raw_text="I feel tired and sleepy most of the time.",

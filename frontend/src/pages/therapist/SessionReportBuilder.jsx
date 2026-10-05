@@ -32,7 +32,7 @@ export default function SessionReportBuilder() {
     title: 'Session report',
     summary: '',
     observations: '',
-    chakra: Object.fromEntries(CHAKRAS.map((c) => [c, { status: 'Not assessed', note: '' }])),
+    chakra: Object.fromEntries(CHAKRAS.map((c) => [c, { engineStatus: 'Not assessed', overrideStatus: '', note: '' }])),
     ragas: '',
     activities: '',
     advice: '',
@@ -53,7 +53,7 @@ export default function SessionReportBuilder() {
     }).catch(() => {});
     if (assessmentId) {
       anahat.get(assessmentId).then((d) => {
-        const results = d.recommendations?.chakra_report?.results || d.chakraReport?.results || [];
+        const results = d.finalChakraResult?.chakras || d.recommendations?.chakra_report?.results || d.chakraReport?.results || [];
         const ragas = (d.recommendations?.raga?.candidates || []).map((r) => r.raga || r.name || r.raga_name).filter(Boolean);
         const acts = (d.recommendations?.activities || []).map((a) => a.activity || a.name || a.title).filter(Boolean);
         setForm((f) => ({
@@ -64,8 +64,11 @@ export default function SessionReportBuilder() {
           activities: f.activities || acts.join('\n'),
           chakra: results.length ? Object.fromEntries(CHAKRAS.map((c) => {
             const r = results.find((x) => x.chakra === c);
-            const label = !r ? 'Not assessed' : /IMBALANCED/i.test(r.status) ? `Imbalanced${r.direction ? ` — ${r.direction}` : ''}` : /BALANCED/i.test(r.status) ? 'Balanced' : 'Unresolved';
-            return [c, { status: label, note: r ? `From the ANAHAT assessment: ${Math.round(r.confidence_pct || 0)}% confidence, ${r.independent_evidence_units} confirmed indicator(s).` : '' }];
+            return [c, {
+              engineStatus: r?.status_label || r?.status || 'Not assessed',
+              overrideStatus: '',
+              note: r ? `${Math.round((r.score ?? r.scores?.presence ?? 0) * 100)}% score; ${r.evidence_count ?? 0} scored evidence item(s), ${r.mapped_evidence_count ?? 0} mapped item(s), ${r.independent_evidence_units ?? 0} independent unit(s); ${r.confidence_pct ?? 0}% confidence; imbalance gate ${r.gate_passed ? 'passed' : 'failed'} at ${Math.round((r.gate_threshold ?? 0) * 100)}%. ${r.gate_reason || ''} ${r.reason || ''}` : '',
+            }];
           })) : f.chakra,
         }));
       }).catch(() => {});
@@ -75,7 +78,7 @@ export default function SessionReportBuilder() {
       setSession(s);
       setForm((f) => ({ ...f, title: `Session report — ${new Date(s?.startedAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}` }));
     }).catch(() => {});
-    anahat.getScan(sessionId).then((sc) => {
+    if (!assessmentId) anahat.getScan(sessionId).then((sc) => {
       setScan(sc);
       const results = sc?.report?.results || [];
       if (results.length) {
@@ -83,13 +86,16 @@ export default function SessionReportBuilder() {
           ...f,
           chakra: Object.fromEntries(CHAKRAS.map((c) => {
             const r = results.find((x) => x.chakra === c);
-            const label = !r ? 'Not assessed' : /IMBALANCED/i.test(r.status) ? `Imbalanced${r.direction ? ` — ${r.direction}` : ''}` : /BALANCED/i.test(r.status) ? 'Balanced' : 'Unresolved';
-            return [c, { status: label, note: r ? `Provisional from Nadika.AI: ${Math.round(r.confidence_pct || 0)}% confidence, ${r.independent_evidence_units} indicator(s).` : '' }];
+            return [c, {
+              engineStatus: r?.status_label || r?.status || 'Not assessed',
+              overrideStatus: '',
+              note: r ? `Provisional Nadika.AI result: ${Math.round(r.confidence_pct || 0)}% confidence, ${r.independent_evidence_units} indicator(s).` : '',
+            }];
           })),
         }));
       }
     }).catch(() => {});
-  }, [patientId, sessionId]);
+  }, [patientId, sessionId, assessmentId]);
 
   const transcript = useMemo(() => (session?.messages || []).map((m) => `${m.from === 'therapist' ? 'Therapist' : 'Patient'}: ${m.text}`).join('\n'), [session]);
 
@@ -105,7 +111,13 @@ export default function SessionReportBuilder() {
       activities: form.activities.split('\n').map((x) => x.trim()).filter(Boolean),
       advice: form.advice,
       nextSteps: form.nextSteps,
-      chakraAnalysis: form.shareChakra ? CHAKRAS.map((c) => ({ chakra: c, status: form.chakra[c].status, note: form.chakra[c].note })) : undefined,
+      chakraAnalysis: form.shareChakra ? CHAKRAS.map((c) => ({
+        chakra: c,
+        status: form.chakra[c].overrideStatus || form.chakra[c].engineStatus,
+        engineStatus: form.chakra[c].engineStatus,
+        therapistOverride: form.chakra[c].overrideStatus || null,
+        note: form.chakra[c].note,
+      })) : undefined,
       therapistName: user?.name,
     };
     anahat.sendReport({ patientId, sessionId, report })
@@ -159,15 +171,16 @@ export default function SessionReportBuilder() {
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Chakra assessment</p>
               <label className="no-print flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={form.shareChakra} onChange={(e) => setForm((f) => ({ ...f, shareChakra: e.target.checked }))} className="accent-[#0F8594]" /> include in the patient's copy</label>
             </div>
-            {scan && <p className="no-print text-[11px] text-amber-700 mb-2">Pre-filled from the Nadika.AI scan (provisional). Edit anything before sending.</p>}
+            {scan && !assessmentId && <p className="no-print text-[11px] text-amber-700 mb-2">Pre-filled from the Nadika.AI scan (provisional). Edit anything before sending.</p>}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-400"><th className="py-1.5">Chakra</th><th>Status</th><th>Note</th></tr></thead>
+                <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-400"><th className="py-1.5">Chakra</th><th>Final ANAHAT engine result</th><th>Therapist override</th><th>Reason / note</th></tr></thead>
                 <tbody>{CHAKRAS.map((c) => (
                   <tr key={c} className="border-t border-black/5">
                     <td className="py-2 font-semibold text-slate-800 whitespace-nowrap pr-3">{c}</td>
-                    <td className="pr-3"><select value={form.chakra[c].status.startsWith('Imbalanced') ? form.chakra[c].status : form.chakra[c].status} onChange={(e) => setChakra(c, 'status', e.target.value)} className="px-2 py-1.5 bg-black/[0.03] border border-black/10 rounded-lg text-xs">
-                      {['Not assessed', 'Balanced', 'Imbalanced — Deficient', 'Imbalanced — Excess', 'Imbalanced', 'Unresolved', form.chakra[c].status].filter((v, i, a) => a.indexOf(v) === i).map((o) => <option key={o}>{o}</option>)}
+                    <td className="py-2 pr-3 text-xs font-semibold">{form.chakra[c].engineStatus}</td>
+                    <td className="pr-3"><select value={form.chakra[c].overrideStatus} onChange={(e) => setChakra(c, 'overrideStatus', e.target.value)} className="px-2 py-1.5 bg-black/[0.03] border border-black/10 rounded-lg text-xs">
+                      {['', 'Balanced', 'Imbalanced — Deficient', 'Imbalanced — Excess', 'Imbalanced', 'Unresolved', 'Not assessed'].map((o) => <option key={o} value={o}>{o || 'No override'}</option>)}
                     </select></td>
                     <td><input value={form.chakra[c].note} onChange={(e) => setChakra(c, 'note', e.target.value)} className="w-full px-2 py-1.5 bg-black/[0.03] border border-black/10 rounded-lg text-xs" /></td>
                   </tr>))}</tbody>

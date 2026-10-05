@@ -39,10 +39,10 @@ class Settings(BaseSettings):
     direction_gray_zone_margin: float = 0.15     # PDF Part 42 (0.10-0.15 = gray zone)
     insufficient_score_threshold: float = 0.20   # PDF Part 68
     high_priority_single_score: float = 0.70     # KB imbalance_gate.high_priority_single
-    # A chakra can only be called BALANCED after adequate assessment.
-    # REQUIRES DOMAIN/THERAPIST VALIDATION: 10 keeps the previous baseline
-    # (all ten quadrants assessed). Lower it only on therapist approval.
-    balanced_min_assessed_quadrants: int = 10
+    # The therapist decides which quadrants are relevant. One genuinely
+    # assessed quadrant is enough to resolve absence of chakra evidence;
+    # completing all ten quadrants is never required.
+    balanced_min_assessed_quadrants: int = 1
     # A quadrant counts as "assessed" only after this many real patient responses.
     min_responses_per_quadrant_assessed: int = 1
 
@@ -120,4 +120,4 @@ class Settings(BaseSettings):
             if item.strip()
         ]
 
-settings = Settings()    
+settings = Settings()

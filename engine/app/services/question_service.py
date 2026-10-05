@@ -20,6 +20,7 @@ class QuestionService:
         self.embedder = embedder
         self._profile_vectors = None
         self.last_recommendation_debug = []
+        self.last_recommendation_input = []
 
     # ------------------------------------------------------------------ opening
     def opening_styles(self) -> list[dict]:
@@ -97,6 +98,7 @@ class QuestionService:
         exhausted = set(exhausted or ())
         assessed = set(assessed or ())
         evidence = self._recommendation_evidence(current_issue, opening_answers, baseline, demographics, concepts)
+        self.last_recommendation_input = evidence
         candidates = [q for q in self.kb.quadrants if q.get("name") not in exhausted]
         method = "bge_m3_semantic"
         if self.embedder is not None and any(x["text"] for x in evidence if x["vote"]):
@@ -176,7 +178,8 @@ class QuestionService:
                 elif label in ignored:
                     found = True
                     flush()
-                    add("demographic context " + label, body, vote=label != "city")
+                    # Demographics stay in context but do not vote a quadrant in by themselves.
+                    add("demographic context " + label, body, vote=False)
                     current_label, current_body = "section", []
                 elif label in labels:
                     found = True
@@ -212,9 +215,9 @@ class QuestionService:
                 if key == "communication_preferences" and isinstance(value, dict):
                     for detail, detail_value in value.items():
                         if detail not in {"name", "patient_id"}:
-                            add("demographic context " + str(detail), detail_value)
+                            add("demographic context " + str(detail), detail_value, vote=False)
                 elif key not in {"patient_id", "language"}:
-                    add("demographic context " + str(key), value)
+                    add("demographic context " + str(key), value, vote=False)
         return evidence
 
     def _semantic_evidence(self, quadrants, evidence):
@@ -299,6 +302,40 @@ class QuestionService:
             if labels:
                 res.append((q, score, reason, debug[-1]["matched_signals"]))
         return res, debug
+
+    def rank_fallback_questions(self, query, questions):
+        """Rank only eligible questions already scoped to the requested quadrant."""
+        questions = list(questions or [])
+        if not questions:
+            return [], "no_eligible_question_in_requested_quadrant"
+        if self.embedder is not None:
+            try:
+                import numpy as np
+                texts = [query, *[
+                    f"{item.get('attribute', '')}: {item.get('question', '')}"
+                    for item in questions
+                ]]
+                vectors = np.asarray(self.embedder.encode_documents(texts))
+                scores = vectors[1:] @ vectors[0]
+                ranked = sorted(zip(questions, scores.tolist()), key=lambda pair: pair[1], reverse=True)
+                return [(item, float(score)) for item, score in ranked], "embedding_similarity"
+            except Exception:  # noqa: BLE001 - local lexical rank is the final fallback
+                logging.getLogger("anahat.assessment.rag").exception(
+                    "Fallback question embedding rank failed; using keyword overlap"
+                )
+        stop = {"about", "after", "also", "and", "are", "can", "describe", "does", "for", "from",
+                "have", "how", "into", "most", "often", "that", "the", "their", "them", "then",
+                "there", "this", "through", "what", "when", "where", "which", "with", "would", "your"}
+        query_terms = {self._stem(word) for word in re.findall(r"[a-z]{3,}", (query or "").lower())} - stop
+        ranked = []
+        for item in questions:
+            terms = {self._stem(word) for word in re.findall(
+                r"[a-z]{3,}", f"{item.get('attribute', '')} {item.get('question', '')}".lower()
+            )} - stop
+            score = len(query_terms & terms) / max(1, len(terms) ** 0.5)
+            ranked.append((item, score))
+        ranked.sort(key=lambda pair: (-pair[1], str(pair[0].get("id", ""))))
+        return ranked, "keyword_overlap"
 
     @staticmethod
     def _stem(token):

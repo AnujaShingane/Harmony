@@ -52,7 +52,7 @@ def test_07_negative_statement_is_not_scored_as_presence():
     assert ev[THROAT["silence"]].status == EvidenceStatus.NEGATIVE
     c = card(svc.final_result(sid), T)
     assert c["counts"]["negative"] == 1
-    assert not c["status"].startswith("IMBALANCED")                       # one real unit only: gate needs 2
+    assert c["status"].startswith("IMBALANCED")  # one confirmed directional unit reaches 0.20
     assert all(not t["counted"] for t in c["trace"] if t["indicator_id"] == THROAT["silence"])
 
 
@@ -82,6 +82,26 @@ def test_09_ambiguous_indicator_needs_kb_disambiguation_before_chakra_counts():
         svc.resolve_ambiguity(sid, ev.evidence_id, "Throat Chakra")      # not an association for SYM-001
     svc.resolve_ambiguity(sid, ev.evidence_id, "Root Chakra")
     assert ev.status == EvidenceStatus.RESOLVED_AFTER_CLARIFICATION
+
+
+def test_09b_patient_disambiguation_response_is_mapped_before_scoring():
+    txt = "I keep getting abdominal cramps"
+    svc, sid = make_session({txt: [concept("abdominal cramps", "abdominal cramps", intensity="Severe")]},
+                            {"abdominal cramps": [("SYM-001", .9)]})
+    _, conf = say(svc, sid, txt)
+    ev = svc._ctx(sid).evidence[0]
+    svc.answer_deep_dive(
+        sid,
+        ev.evidence_id,
+        "disambiguation",
+        "Root Chakra",
+        raw_text="I feel unsafe and worried about basic needs.",
+    )
+    assert ev.status == EvidenceStatus.RESOLVED_AFTER_CLARIFICATION
+    report = svc.scoring.score(svc._ctx(sid).evidence)
+    root = next(item for item in report.results if item.chakra == "Root Chakra")
+    assert root.scored_evidence_count == 1
+    assert root.score > 0
 
 
 # ---------------- 10: multi-chakra evidence ----------------------------------------------------------------
@@ -125,7 +145,7 @@ def test_12_repeating_the_same_symptom_does_not_inflate_the_score():
     res = svc.final_result(sid)
     assert card(res, T)["scores"]["presence"] == once
     assert card(res, T)["independent_evidence_units"] == 1
-    assert card(res, T)["status"] != "IMBALANCED" and not card(res, T)["status"].startswith("IMBALANCED")
+    assert card(res, T)["status"].startswith("IMBALANCED")
 
 
 def test_12b_kb_twin_entries_count_once():
@@ -157,13 +177,14 @@ def test_13_deep_dive_asks_for_missing_details_is_capped_and_stops():
 
 
 # ---------------- 14: insufficient evidence -----------------------------------------------------------------------------
-def test_14_one_mild_mention_is_not_imbalance_and_not_balanced():
+def test_14_one_mild_mention_passes_meaningful_directional_threshold():
     t = "Sometimes I stay silent"
     svc, sid = make_session({t: [concept("stay silent", "silence", "behaviour", intensity="Mild")]},
                             {"silence": [(THROAT["silence"], .9)]})
     say(svc, sid, t)
     c = card(svc.final_result(sid), T)
-    assert c["status"] == "UNRESOLVED" and c["status_code"] == "INSUFFICIENT_EVIDENCE"
+    assert c["status"].startswith("IMBALANCED")
+    assert c["scores"]["deficient"] >= .2 or c["scores"]["excess"] >= .2
     assert c["status"] != "BALANCED"
 
 

@@ -421,6 +421,7 @@ export async function endSession(user, doc) {
       assessment_context_summary: doc.assessmentContextSummary };
   }
   const result = await withEngine(doc, () => engine.endSession(doc.engineSessionId));
+  if (result?.status === 'CLARIFICATION_REQUIRED') return result;
   doc.finalChakraResult = result.final_result;
   doc.chakraReport = result.chakra_report;
   doc.recommendations = { raga: result.raga, activities: result.activities };
@@ -472,7 +473,7 @@ export async function finalize(user, doc) {
   }
   const draft = doc.prescriptionDraft || {};
   const edits = doc.prescriptionDecision.edits || {};
-  const findings = draft.findings || doc.chakraReport?.results || [];
+  const findings = doc.finalChakraResult?.chakras || doc.chakraReport?.results || draft.findings || [];
   const ragas = edits.raga_candidates || draft.raga_candidates || [];
   const activities = edits.activities || draft.activities || [];
   const nameOfRaga = (r) => r.raga || r.name || r.raga_name || r.id || '';
@@ -511,7 +512,8 @@ export async function finalize(user, doc) {
     coverage: { scope: doc.scope, responses: doc.transcript.length, evidenceUnits: doc.evidence.length },
     chakraAnalysis: findings,
     evidence: doc.evidence,
-    unresolved: (doc.chakraReport?.results || []).filter((c) => /UNRESOLVED/i.test(c.status || '')),
+    unresolved: (doc.finalChakraResult?.chakras || doc.chakraReport?.results || [])
+      .filter((c) => /UNRESOLVED/i.test(c.status || '')),
     ragaRecommendations: ragas,
     activities,
     safetyEvents: doc.safetyEvents,

@@ -26,6 +26,7 @@ class TraceItem(BaseModel):
 
 class ChakraResult(BaseModel):
     chakra: str
+    score: float = 0.0
     presence_score: float
     deficient_score: float
     excess_score: float
@@ -34,6 +35,11 @@ class ChakraResult(BaseModel):
     severity: str
     confidence_pct: float
     independent_evidence_units: int
+    gate_passed: bool = False
+    gate_threshold: float = 0.0
+    gate_reason: str = ""
+    mapped_evidence_count: int = 0
+    scored_evidence_count: int = 0
     reasons: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
 

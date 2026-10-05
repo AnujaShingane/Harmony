@@ -161,7 +161,7 @@ export default function ReportPage() {
                                 {report.report.chakraAnalysis?.length > 0 && (
                                     <div className="border-l-4 border-violet-500 bg-violet-50 rounded-r-xl p-6">
                                         <h2 className="text-xl font-serif font-bold text-slate-900 mb-3">Chakra Analysis</h2>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{report.report.chakraAnalysis.map((item, i) => <div key={i} className="bg-white/70 rounded-xl p-3"><p className="font-bold text-slate-900">{item.chakra}</p><p className="text-sm text-slate-600">{item.status}</p>{item.note && <p className="text-xs text-slate-500 mt-1">{item.note}</p>}</div>)}</div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{report.report.chakraAnalysis.map((item, i) => <div key={i} className="bg-white/70 rounded-xl p-3"><p className="font-bold text-slate-900">{item.chakra}</p>{item.engineStatus && <p className="text-sm text-slate-600">Final ANAHAT result: {item.engineStatus}</p>}<p className="text-sm text-slate-600">{item.therapistOverride ? `Therapist override: ${item.therapistOverride}` : item.engineStatus ? 'No therapist override' : item.status}</p>{item.note && <p className="text-xs text-slate-500 mt-1">{item.note}</p>}</div>)}</div>
                                     </div>
                                 )}
                                 {report.report.userPrescription && (
