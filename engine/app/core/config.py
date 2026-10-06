@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
     qdrant_collection: str = "anahat_knowledge"
-    qdrant_indicator_collection: str = "anahat_indicator_validation_v1"
+    qdrant_indicator_collection: str = "anahat_knowledge"
 
     embedding_model: str = "BAAI/bge-m3"
     embedding_dimension: int = 1024

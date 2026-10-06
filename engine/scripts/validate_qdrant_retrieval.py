@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -8,7 +8,7 @@ from app.retrieval.embeddings import BGE_M3_Embedder
 from app.retrieval.qdrant_client import get_qdrant_client
 
 
-COLLECTION = "anahat_kb_validation_v1"
+COLLECTION = "anahat_knowledge"
 TOP_K = 5
 
 QUERIES = [
@@ -38,9 +38,9 @@ def main():
     print(f"Vector dimension: {info.config.params.vectors.size}")
     print()
 
-    if info.points_count != 37:
+    if info.points_count != 54:
         raise RuntimeError(
-            f"Expected 37 points, found {info.points_count}"
+            f"Expected 54 points, found {info.points_count}"
         )
 
     for number, query in enumerate(QUERIES, start=1):

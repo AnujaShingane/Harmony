@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ingestion.document_loader import load_document
-from ingestion.chunker import chunk_text
+from ingestion.chunker import build_chunks
 from ingestion.qdrant_upsert import upsert_chunks
 
 
@@ -27,24 +27,9 @@ def build_index(kb_path: str):
         }:
             continue
 
-        text = load_document(path)
+        document = load_document(path)
 
-        metadata = {
-            "source_file": path.name,
-            "source_path": str(path),
-            "domain": (
-                path.parent.name
-            ),
-            "review_status": "unknown",
-        }
-
-        chunks = chunk_text(
-            text=text,
-            document_id = make_document_id(path),
-            metadata=metadata,
-            target_tokens=800,
-            max_tokens=1000,
-        )
+        chunks = build_chunks(document)
 
         all_chunks.extend(chunks)
 
